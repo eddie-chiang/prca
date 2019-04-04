@@ -1,0 +1,7 @@
+log_file: ./Thesis/Assets/results-20181214-113936-nlp-classified-output.log
+
+dialogue_act_classification:
+  pull_request_comments_csv_file: ./Thesis/Assets/results-20181214-113936.csv
+  trained_dialogue_act_classifier: ./Thesis/Assets/trained_dialogue_act_classifier.pickle
+  classified_output_csv_file: ./Thesis/Assets/results-20181214-113936-nlp-classified-output.csv
+  # TODO: add percentage of the training.
