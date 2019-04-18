@@ -1,0 +1,5 @@
+# venv generated files during virtual environment setup.
+Include
+Lib
+Scripts
+pyvenv.cfg
