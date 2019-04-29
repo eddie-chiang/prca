@@ -11,26 +11,15 @@ import logging
 import nltk
 import pickle
 import sys
+import yaml
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
 #from nltk.stem.porter import *
 from pathlib import Path
 
-###########################################################
-# Static Input Parameters
-###########################################################
-big_query_csv_file = Path('./Thesis/Assets/results-20181214-113936.csv')
-output_file = Path('./Thesis/Assets/results-20181214-113936-nlp-classified-output.csv')
-log_file = Path('./Thesis/Assets/results-20181214-113936-nlp-classified-output.log')
-trained_dialogue_act_classifier_file = Path('./Thesis/Assets/trained_dialogue_act_classifier.pickle')
-
-###########################################################
-# Runtime User Input Parameters
-###########################################################
-perform_classify = False
-if input("Classify GH Torrent Data? (y/n): ").lower().strip()[:1] == "y": 
-    perform_classify = True
+with open(Path('./pullrequestcommentanalyzer/config.yaml'), 'r') as config_file:
+    cfg = yaml.safe_load(config_file)
 
 ###########################################################
 # Processing
@@ -61,8 +50,10 @@ logging.basicConfig(
     level=logging.INFO, 
     format='%(asctime)s, %(levelname)s, %(message)s', 
     datefmt='%Y-%m-%d %H:%M:%S %z',
-    handlers=[logging.StreamHandler(), logging.FileHandler(filename=log_file, mode='a')])
+    handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
 logging.info('Program started.')
+
+trained_dialogue_act_classifier_file = Path(cfg['dialogue_act_classification']['trained_dialogue_act_classifier'])
 
 if trained_dialogue_act_classifier_file.is_file():
     with open(trained_dialogue_act_classifier_file, mode="rb") as f:
@@ -110,8 +101,8 @@ else:
 
 # Use the model to classify unlabeled data (BigQuery results from the CSV file).
 comments = collections.defaultdict(set)
-with open(big_query_csv_file, mode='r', encoding='utf-8') as input_csvfile:
-    with open(output_file, mode='w', newline='', encoding='utf-8') as output_csvfile:
+with open(Path(cfg['dialogue_act_classification']['pull_request_comments_csv_file']), mode='r', encoding='utf-8') as input_csvfile:
+    with open(Path(cfg['dialogue_act_classification']['classified_output_csv_file']), mode='w', newline='', encoding='utf-8') as output_csvfile:
         dict_reader = csv.DictReader(input_csvfile, delimiter=',')
                 
         # Add a new column of the NLP classification
@@ -123,7 +114,7 @@ with open(big_query_csv_file, mode='r', encoding='utf-8') as input_csvfile:
             comment = row['body']
             comments[row['comment_id']] = comment
 
-            if perform_classify == True:
+            if cfg['perform_classify'] == True:
                 unlabeled_data_features = dialogue_act_features(comment)
                 dialogue_act_classification = dialogue_act_classifier.classify(unlabeled_data_features)
                 row['dialogue_act_classification'] = dialogue_act_classification
