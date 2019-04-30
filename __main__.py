@@ -6,6 +6,7 @@ import nltk
 import pickle
 import sys
 import yaml
+from dialogueactclassification.classifier import dialogue_act_features
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
@@ -117,13 +118,6 @@ def main():
     # tfidf = gensim.models.TfidfModel()
 
     logging.info('Program ended.')
-
-# Define a simple feature extractor that checks what words the post contains.
-def dialogue_act_features(post):
-    features = {}
-    for word in nltk.word_tokenize(post):
-        features['contains({})'.format(word.lower())] = True
-    return features
 
 def lemmatize_stemming(text):
     stemmer = SnowballStemmer('english')
