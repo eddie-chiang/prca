@@ -1,12 +1,12 @@
 import collections
 import csv
-import dialogueactclassification.classifier
 import gensim
 import logging
 import nltk
 import pickle
 import sys
 import yaml
+from dialogueactclassification import Classifier
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
@@ -27,6 +27,7 @@ def main():
     logger.info('Program started.')
 
     trained_dialogue_act_classifier_file = Path(cfg['dialogue_act_classification']['trained_dialogue_act_classifier'])
+    dac_classifier = Classifier(logger)
 
     if trained_dialogue_act_classifier_file.is_file():
         with open(trained_dialogue_act_classifier_file, mode="rb") as f:
@@ -39,7 +40,7 @@ def main():
         logger.info(f'Loaded {len(posts)} posts from nps_chat corpus.')
 
         # Construct the training and test data by applying the feature extractor to each post, and create a new classifier.
-        featuresets = [(dialogueactclassification.classifier.dialogue_act_features(post.text), post.get('class'))
+        featuresets = [(dac_classifier.dialogue_act_features(post.text), post.get('class'))
                         for post in posts]
         size = int(len(featuresets) * 0.1) # 10% to use as Training Set, 90% to use Test Set.
         train_set, test_set = featuresets[size:], featuresets[:size]
@@ -88,7 +89,7 @@ def main():
                 comments[row['comment_id']] = comment
 
                 if cfg['perform_classify'] == True:
-                    unlabeled_data_features = dialogueactclassification.classifier.dialogue_act_features(comment)
+                    unlabeled_data_features = dac_classifier.dialogue_act_features(comment)
                     dialogue_act_classification = dialogue_act_classifier.classify(unlabeled_data_features)
                     row['dialogue_act_classification'] = dialogue_act_classification
                     csv_writer.writerow(row)
