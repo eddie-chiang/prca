@@ -26,11 +26,11 @@ def main():
     logger = logging.getLogger('pullrequestcommentanalyzer logger');
     logger.info('Program started.')
 
-    trained_dialogue_act_classifier_file = Path(cfg['dialogue_act_classification']['trained_dialogue_act_classifier'])
+    trained_dac_file = Path(cfg['dialogue_act_classification']['trained_classifier_file'])
    
-    if (trained_dialogue_act_classifier_file.is_file() and
+    if (trained_dac_file.is_file() and
         cfg['dialogue_act_classification']['train_classifier'] == False):
-            with open(trained_dialogue_act_classifier_file, mode='rb') as f:
+            with open(trained_dac_file, mode='rb') as f:
                 dialogue_act_classifier = pickle.load(f)
                 logger.info('Loaded trained dialogue act classifier.')
     else:
@@ -38,7 +38,7 @@ def main():
         dac_classifier = Classifier(logger)
         dialogue_act_classifier = dac_classifier.train()
         
-        with open(trained_dialogue_act_classifier_file, mode='wb') as f:
+        with open(trained_dac_file, mode='wb') as f:
             pickle.dump(dialogue_act_classifier, f)
             logger.info('Saved trained dialogue act classifier.')   
 

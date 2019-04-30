@@ -5,7 +5,7 @@ perform_classify: False
 
 dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier
-  trained_dialogue_act_classifier: ./Thesis/Assets/trained_dialogue_act_classifier.pickle
+  trained_classifier_file: ./Thesis/Assets/trained_dialogue_act_classifier.pickle
   pull_request_comments_csv_file: ./Thesis/Assets/results-20181214-113936.csv
   classified_output_csv_file: ./Thesis/Assets/results-20181214-113936-nlp-classified-output.csv
   # TODO: add percentage of the training.
