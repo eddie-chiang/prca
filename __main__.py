@@ -23,30 +23,31 @@ def main():
         format='%(asctime)s, %(levelname)s, %(message)s', 
         datefmt='%Y-%m-%d %H:%M:%S %z',
         handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
-    logging.info('Program started.')
+    logger = logging.getLogger('pullrequestcommentanalyzer logger');
+    logger.info('Program started.')
 
     trained_dialogue_act_classifier_file = Path(cfg['dialogue_act_classification']['trained_dialogue_act_classifier'])
 
     if trained_dialogue_act_classifier_file.is_file():
         with open(trained_dialogue_act_classifier_file, mode="rb") as f:
             dialogue_act_classifier = pickle.load(f)
-            logging.info('Loaded trained dialogue act classifier.')
+            logger.info('Loaded trained dialogue act classifier.')
     else:
         # Extract the labeled basic messaging data.
         #posts = nltk.corpus.nps_chat.xml_posts()[:10000]
         posts = nltk.corpus.nps_chat.xml_posts()
-        logging.info(f'Loaded {len(posts)} posts from nps_chat corpus.')
+        logger.info(f'Loaded {len(posts)} posts from nps_chat corpus.')
 
         # Construct the training and test data by applying the feature extractor to each post, and create a new classifier.
         featuresets = [(dialogueactclassification.classifier.dialogue_act_features(post.text), post.get('class'))
                         for post in posts]
         size = int(len(featuresets) * 0.1) # 10% to use as Training Set, 90% to use Test Set.
         train_set, test_set = featuresets[size:], featuresets[:size]
-        logging.info('Size of feature set: %d, train on %d instances, test on %d instances.' % (len(featuresets), len(train_set), len(test_set)))
+        logger.info('Size of feature set: %d, train on %d instances, test on %d instances.' % (len(featuresets), len(train_set), len(test_set)))
 
         # Train the dialogue act classifier.
         dialogue_act_classifier = nltk.NaiveBayesClassifier.train(train_set)
-        logging.info('Accuracy: {}%.'.format(round(nltk.classify.accuracy(dialogue_act_classifier, test_set) * 100, 4)))
+        logger.info('Accuracy: {}%.'.format(round(nltk.classify.accuracy(dialogue_act_classifier, test_set) * 100, 4)))
 
         # Getting the Precision (% of prediction that are correct), and Recall (% of that identifies the class accurately).
         refsets = collections.defaultdict(set)
@@ -64,12 +65,12 @@ def main():
                 precision_rate = 0
             if not isinstance(recall_rate, float):
                 recall_rate = 0
-            logging.info(f'Precision ({class_label}): {round(precision_rate * 100, 4)}%.')
-            logging.info(f'Recall ({class_label}): {round(recall_rate * 100, 4)}%.')
+            logger.info(f'Precision ({class_label}): {round(precision_rate * 100, 4)}%.')
+            logger.info(f'Recall ({class_label}): {round(recall_rate * 100, 4)}%.')
 
         with open(trained_dialogue_act_classifier_file, mode="wb") as f:
             pickle.dump(dialogue_act_classifier, f)
-            logging.info('Saved trained dialogue act classifier.')
+            logger.info('Saved trained dialogue act classifier.')
 
     # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     comments = collections.defaultdict(set)
@@ -117,7 +118,7 @@ def main():
     # # Use Term Frequency-Inverse Document Frequency (TD-IDEF) to measure topic relevance.
     # tfidf = gensim.models.TfidfModel()
 
-    logging.info('Program ended.')
+    logger.info('Program ended.')
 
 def lemmatize_stemming(text):
     stemmer = SnowballStemmer('english')
