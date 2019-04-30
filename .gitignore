@@ -6,4 +6,4 @@ Scripts
 pyvenv.cfg
 
 # Python compiled file
-*.pyc
+__pycache__
