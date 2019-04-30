@@ -1,9 +1,3 @@
-###########################################################
-# Pre-requisites
-# Python 3.7
-# pip install -U nltk
-# pip install -U gensim 
-###########################################################
 import collections
 import csv
 import gensim
