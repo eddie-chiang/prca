@@ -28,19 +28,7 @@ def main():
 
     trained_dac_file = Path(cfg['dialogue_act_classification']['trained_classifier_file'])
    
-    if (trained_dac_file.is_file() and
-        cfg['dialogue_act_classification']['train_classifier'] == False):
-            with open(trained_dac_file, mode='rb') as f:
-                dialogue_act_classifier = pickle.load(f)
-                logger.info('Loaded trained dialogue act classifier.')
-    else:
-        logger.info('Training dialogue act classifier.')
-        dac_classifier = Classifier(logger)
-        dialogue_act_classifier = dac_classifier.train()
-        
-        with open(trained_dac_file, mode='wb') as f:
-            pickle.dump(dialogue_act_classifier, f)
-            logger.info('Saved trained dialogue act classifier.')   
+    dac_classifier = Classifier(logger, Path(cfg['dialogue_act_classification']['trained_classifier_file']), cfg['dialogue_act_classification']['train_classifier'])
 
     # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     comments = collections.defaultdict(set)
@@ -59,7 +47,7 @@ def main():
 
                 if cfg['perform_classify'] == True:
                     unlabeled_data_features = dac_classifier.dialogue_act_features(comment)
-                    dialogue_act_classification = dialogue_act_classifier.classify(unlabeled_data_features)
+                    dialogue_act_classification = dac_classifier.classify(unlabeled_data_features)
                     row['dialogue_act_classification'] = dialogue_act_classification
                     csv_writer.writerow(row)
 
