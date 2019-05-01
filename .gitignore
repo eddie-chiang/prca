@@ -1,9 +1,5 @@
 # venv generated files during virtual environment setup.
-bin
-Include
-Lib
-Scripts
-pyvenv.cfg
+.venv
 
 # Python compiled file
 __pycache__

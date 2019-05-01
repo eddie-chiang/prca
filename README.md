@@ -2,13 +2,13 @@
 ## Set up a [virtual environment](https://docs.python.org/3.6/library/venv.html#module-venv)
 On macOS and Linux:
 ```bash
-python3 -m venv .
-source ./bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 On Windows:
 ```bash
-python -m venv .
-.\Scripts\Activate.ps1
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
 ## Install dependent packages
