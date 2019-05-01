@@ -1,7 +1,7 @@
 log_file: ./Thesis/Assets/pullrequestcommentanalyzer.log
 
-# Whether to classify GH Torrent Pull Request Comments data?
-perform_classify: False
+# Whether to classify dialogue act type on GH Torrent Pull Request Comments data?
+perform_dac: False
 
 dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier
