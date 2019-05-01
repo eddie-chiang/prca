@@ -23,10 +23,8 @@ def main():
         format='%(asctime)s, %(levelname)s, %(message)s', 
         datefmt='%Y-%m-%d %H:%M:%S %z',
         handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
-    logger = logging.getLogger('pullrequestcommentanalyzer logger');
+    logger = logging.getLogger('pullrequestcommentanalyzer logger')
     logger.info('Program started.')
-
-    trained_dac_file = Path(cfg['dialogue_act_classification']['trained_classifier_file'])
    
     dac_classifier = Classifier(logger, Path(cfg['dialogue_act_classification']['trained_classifier_file']), cfg['dialogue_act_classification']['train_classifier'])
 
