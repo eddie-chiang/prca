@@ -44,8 +44,7 @@ def main():
                 comments[row['comment_id']] = comment
 
                 if cfg['perform_classify'] == True:
-                    unlabeled_data_features = dac_classifier.dialogue_act_features(comment)
-                    dialogue_act_classification = dac_classifier.classify(unlabeled_data_features)
+                    dialogue_act_classification = dac_classifier.classify(comment)
                     row['dialogue_act_classification'] = dialogue_act_classification
                     csv_writer.writerow(row)
 
