@@ -30,31 +30,32 @@ def main():
     comments = collections.defaultdict(set)
     with open(Path(cfg['dialogue_act_classification']['pull_request_comments_csv_file']), mode='r', encoding='utf-8') as input_csvfile:
         dict_reader = csv.DictReader(input_csvfile, delimiter=',')
-        for row in dict_reader:
-            comments[row['comment_id']] = row['body']
 
         if cfg['perform_dialogue_act_classification'] == True:
-            classified_output_csv_file = Path(cfg['dialogue_act_classification']['classified_output_csv_file'])
-            logger.info(f'Performing Dialogue Act Classification and exporting to {classified_output_csv_file}')
-
             dac_classifier = Classifier(logger, 
                                 Path(cfg['dialogue_act_classification']['trained_classifier_file']), 
                                 cfg['dialogue_act_classification']['train_classifier'],
                                 cfg['dialogue_act_classification']['test_set_percentage'])
+
+            classified_output_csv_file = Path(cfg['dialogue_act_classification']['classified_output_csv_file'])
+            logger.info(f'Performing Dialogue Act Classification and exporting to {classified_output_csv_file}')
                                 
             with open(classified_output_csv_file, mode='w', newline='', encoding='utf-8') as output_csvfile:      
                 # Add a new column of the NLP classification
                 field_names = dict_reader.fieldnames + ['dialogue_act_classification']
                 csv_writer = csv.DictWriter(output_csvfile, field_names, delimiter=',')
-                csv_writer.writeheader()                
-
-                input_csvfile.seek(0) # Seek the file back to the start in order to use dict_reader again.
-                next(dict_reader) # Skip header row.                
+                csv_writer.writeheader()                               
 
                 for row in dict_reader:
                     dialogue_act_classification = dac_classifier.classify(row['body'])
                     row['dialogue_act_classification'] = dialogue_act_classification
                     csv_writer.writerow(row)
+
+        input_csvfile.seek(0) # Seek the file back to the start in order to use dict_reader again.
+        next(dict_reader) # Skip header row.                
+        
+        for row in dict_reader:
+            comments[row['comment_id']] = row['body']
 
     # Topic Modelling with Latent Dirichlet Allocation.
     # Step 1. Tokenization: Split the text into sentences and the sentences into workds. Lowercase the words and remove punctuation.
