@@ -22,11 +22,6 @@ pip install -r requirements.txt
 ```
 
 ## Download NLTK corpora
-Open Python console:
-```bash
-.venv/bin/python3
-```
-
 In the Python console, launch the NLTK Downloader:
 ```python
 import nltk
