@@ -7,6 +7,7 @@ import pickle
 import sys
 import yaml
 from dialogueactclassification import Classifier
+from manuallabeling import FileGenerator
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
@@ -20,20 +21,27 @@ def main():
     # Setting up logging.
     logging.basicConfig(
         level=logging.INFO, 
-        format='%(asctime)s, %(levelname)s, %(message)s', 
+        format='%(asctime)s, %(levelname)s, %(name)s, %(message)s', 
         datefmt='%Y-%m-%d %H:%M:%S %z',
         handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
-    logger = logging.getLogger('pullrequestcommentanalyzer logger')
+    logger = logging.getLogger('pullrequestcommentanalyzer')
     logger.info('Program started.')
    
+    pull_request_comments_csv_file = Path(cfg['dialogue_act_classification']['pull_request_comments_csv_file'])
+
+    if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'] == True:
+        manual_label_file_generator = FileGenerator(pull_request_comments_csv_file, 
+                                        Path(cfg['dialogue_act_classification']['manual_labeling']['csv_file']),
+                                        Path(cfg['dialogue_act_classification']['manual_labeling']['random_sample_line_numbers_csv_file']))
+        manual_label_file_generator.generate()    
+
     # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     comments = collections.defaultdict(set)
-    with open(Path(cfg['dialogue_act_classification']['pull_request_comments_csv_file']), mode='r', encoding='utf-8') as input_csvfile:
+    with open(pull_request_comments_csv_file, mode='r', encoding='utf-8') as input_csvfile:
         dict_reader = csv.DictReader(input_csvfile, delimiter=',')
 
         if cfg['perform_dialogue_act_classification'] == True:
-            dac_classifier = Classifier(logger, 
-                                Path(cfg['dialogue_act_classification']['trained_classifier_file']), 
+            dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file']), 
                                 cfg['dialogue_act_classification']['train_classifier'],
                                 cfg['dialogue_act_classification']['test_set_percentage'])
 

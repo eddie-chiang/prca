@@ -7,6 +7,10 @@ dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier.
   trained_classifier_file: ./Thesis/Assets/trained_dialogue_act_classifier.pickle
   test_set_percentage: 10 # Percentage of the labeled NPS Chat Corpus to be used as the test set (remainder will be the train set).
-  pull_request_comments_csv_file: ./Thesis/Assets/results-20181214-113936.csv
-  classified_output_csv_file: ./Thesis/Assets/results-20181214-113936-nlp-classified-output.csv
-  # TODO: add percentage of the training.
+  pull_request_comments_csv_file: /Volumes/RamDisk/ME/results_20190503_1403.csv
+  classified_output_csv_file: /Volumes/RamDisk/ME/results_20190503_1403_dac.csv
+
+  manual_labeling:
+    generate_csv_file: True
+    csv_file: ./Thesis/Assets/manual_labeled.csv
+    random_sample_line_numbers_csv_file: ./Thesis/Assets/random_sample_line_numbers.csv
