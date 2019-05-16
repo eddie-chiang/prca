@@ -4,7 +4,6 @@ log_file: ./Thesis/Assets/pullrequestcommentanalyzer.log
 perform_dialogue_act_classification: False
 
 bigquery:
-  query_file: ./pullrequestcommentanalyzer/bigquery/BigQuery.sql
   pull_request_comments_results_csv_file: ./Thesis/Assets/bigquery_pull_request_comments_results.csv
 
 dialogue_act_classification:

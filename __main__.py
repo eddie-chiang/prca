@@ -6,7 +6,6 @@ import nltk
 import pickle
 import sys
 import yaml
-from bigquery import CommentsResourceAccess
 from dialogueactclassification import Classifier
 from manuallabeling import FileGenerator
 # from gensim.utils import simple_preprocess
@@ -26,15 +25,9 @@ def main():
         datefmt='%Y-%m-%d %H:%M:%S %z',
         handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
     logger = logging.getLogger('pullrequestcommentanalyzer')
-    logger.info('Program started.')
-    
+    logger.info('Program started.')  
 
     pull_request_comments_csv_file = Path(cfg['bigquery']['pull_request_comments_results_csv_file'])
-
-    commentsRa = CommentsResourceAccess(Path(cfg['bigquery']['query_file']), pull_request_comments_csv_file)
-    commentsRa.export()    
-
-    sys.exit() # End here
 
     if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'] == True:
         manual_label_file_generator = FileGenerator(pull_request_comments_csv_file, 
