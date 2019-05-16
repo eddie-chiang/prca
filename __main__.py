@@ -29,10 +29,12 @@ def main():
     logger.info('Program started.')
     
 
-    commentsRa = CommentsResourceAccess()
-    commentsRa.export()
+    pull_request_comments_csv_file = Path(cfg['bigquery']['pull_request_comments_results_csv_file'])
 
-    pull_request_comments_csv_file = Path(cfg['dialogue_act_classification']['pull_request_comments_csv_file'])
+    commentsRa = CommentsResourceAccess(Path(cfg['bigquery']['query_file']), pull_request_comments_csv_file)
+    commentsRa.export()    
+
+    sys.exit() # End here
 
     if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'] == True:
         manual_label_file_generator = FileGenerator(pull_request_comments_csv_file, 
