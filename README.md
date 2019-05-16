@@ -29,3 +29,12 @@ nltk.download()
 ```
 Download the following corpora:
 - nps_chat
+
+## Configure Google BigQuery Service Account
+To use the google.cloud.bigquery library, it expects a environment variable for retrieving the service account credential JSON file ([instructions](https://cloud.google.com/bigquery/docs/quickstarts/quickstart-client-libraries)).
+
+On Windows, add the following to [Activate.ps1](.venv\Scripts\Activate.ps1):
+```PowerShell
+# Google BigQuery
+$env:GOOGLE_APPLICATION_CREDENTIALS="$env:VIRTUAL_ENV\..\BigQueryServiceAccount.json"
+```

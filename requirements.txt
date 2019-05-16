@@ -1,3 +1,4 @@
 gensim
+google-cloud-bigquery
 nltk
 pyyaml
