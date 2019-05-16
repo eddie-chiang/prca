@@ -36,5 +36,5 @@ To use the google.cloud.bigquery library, it expects a environment variable for 
 On Windows, add the following to [Activate.ps1](.venv\Scripts\Activate.ps1):
 ```PowerShell
 # Google BigQuery
-$env:GOOGLE_APPLICATION_CREDENTIALS="$env:VIRTUAL_ENV\..\BigQueryServiceAccount.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS="$env:VIRTUAL_ENV\..\bigquery\BigQueryServiceAccount.json"
 ```
