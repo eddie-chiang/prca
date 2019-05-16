@@ -4,7 +4,19 @@ log_file: ./Thesis/Assets/pullrequestcommentanalyzer.log
 perform_dialogue_act_classification: False
 
 bigquery:
-  pull_request_comments_results_csv_file: ./Thesis/Assets/bigquery_pull_request_comments_results.csv
+  pull_request_comments_results_csv_file: /Volumes/RamDisk/ME/results_20190503_1403.csv
+
+ghtorrent_mongodb:
+  host: dutihr.st.ewi.tudelft.nl
+  port: 27017
+  database: github
+  username: ghtorrentro
+  password: ghtorrentro
+  ssh_tunnel_host: dutihr.st.ewi.tudelft.nl
+  ssh_tunnel_port: 22
+  ssh_username: ghtorrent
+  ssh_private_key: /Users/eddiechiang/.ssh/id_rsa
+  ssh_private_key_password:
 
 dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier.
