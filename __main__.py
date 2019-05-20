@@ -1,4 +1,5 @@
 import collections
+import confuse
 import csv
 import gensim
 import logging
@@ -16,6 +17,13 @@ from nltk.stem import WordNetLemmatizer, SnowballStemmer
 from pathlib import Path
 
 def main():
+    config = confuse.Configuration('pullrequestcommentanalyzer', __name__)
+    print(config.config_dir())
+    print(confuse.CONFIG_FILENAME)
+    print(config.dump())
+
+
+
     with open(Path('./pullrequestcommentanalyzer/config.yaml'), 'r') as config_file:
         cfg = yaml.safe_load(config_file)
 
