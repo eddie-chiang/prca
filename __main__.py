@@ -6,7 +6,6 @@ import logging
 import nltk
 import pickle
 import sys
-import yaml
 from commentexpansion import CommentLoader
 from dialogueactclassification import Classifier
 from manuallabeling import FileGenerator
@@ -14,63 +13,53 @@ from manuallabeling import FileGenerator
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
 #from nltk.stem.porter import *
-from pathlib import Path
 
 def main():
-    config = confuse.Configuration('pullrequestcommentanalyzer', __name__)
-    print(config.config_dir())
-    print(confuse.CONFIG_FILENAME)
-    print(config.dump())
-
-
-
-    with open(Path('./pullrequestcommentanalyzer/config.yaml'), 'r') as config_file:
-        cfg = yaml.safe_load(config_file)
+    cfg = confuse.LazyConfig('pullrequestcommentanalyzer', __name__)
+    cfg.set_file('./pullrequestcommentanalyzer/config.yaml')
+    cfg.set_file('./pullrequestcommentanalyzer/config.workspace.yaml') # Override config for the workspace.
 
     # Setting up logging.
     logging.basicConfig(
         level=logging.INFO, 
         format='%(asctime)s, %(levelname)s, %(name)s, %(message)s', 
         datefmt='%Y-%m-%d %H:%M:%S %z',
-        handlers=[logging.StreamHandler(), logging.FileHandler(filename=Path(cfg['log_file']), mode='a')])
+        handlers=[logging.StreamHandler(), logging.FileHandler(filename=cfg['log_file'].as_filename(), mode='a')])
     logger = logging.getLogger('pullrequestcommentanalyzer')
     logger.info('Program started.')  
 
-    pull_request_comments_csv_file = Path(cfg['bigquery']['pull_request_comments_results_csv_file'])
+    pull_request_comments_csv_file = cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename()
 
-    commentLoader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'],
-                            cfg['ghtorrent_mongodb']['ssh_tunnel_port'],
-                            cfg['ghtorrent_mongodb']['ssh_username'],
-                            cfg['ghtorrent_mongodb']['ssh_private_key'],
-                            cfg['ghtorrent_mongodb']['ssh_private_key_password'],
-                            cfg['ghtorrent_mongodb']['host'],
-                            cfg['ghtorrent_mongodb']['port'],
-                            cfg['ghtorrent_mongodb']['username'],
-                            cfg['ghtorrent_mongodb']['password'],
-                            cfg['ghtorrent_mongodb']['database'])
-    commentLoader.Load("opendatakit", "collect", 279, 90929163)
+    commentLoader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
+                            cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(int),
+                            cfg['ghtorrent_mongodb']['ssh_username'].get(),
+                            cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
+                            cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(),
+                            cfg['ghtorrent_mongodb']['host'].get(),
+                            cfg['ghtorrent_mongodb']['port'].get(int),
+                            cfg['ghtorrent_mongodb']['username'].get(),
+                            cfg['ghtorrent_mongodb']['password'].get(),
+                            cfg['ghtorrent_mongodb']['database'].get())
+    commentLoader.Load("opendatakit", "collect", 279, 90929163) # TODO remove this.
 
-    sys.exit()
-
-
-
-    if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'] == True:
+    if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'].get(bool) == True:
         manual_label_file_generator = FileGenerator(pull_request_comments_csv_file, 
-                                        Path(cfg['dialogue_act_classification']['manual_labeling']['csv_file']),
-                                        Path(cfg['dialogue_act_classification']['manual_labeling']['random_sample_line_numbers_csv_file']))
-        manual_label_file_generator.generate()    
+                                        cfg['dialogue_act_classification']['manual_labeling']['csv_file'].as_filename(),
+                                        cfg['dialogue_act_classification']['manual_labeling']['random_sample_line_numbers_csv_file'].as_filename())
+        sys.exit()
+        manual_label_file_generator.generate()
 
     # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     comments = collections.defaultdict(set)
     with open(pull_request_comments_csv_file, mode='r', encoding='utf-8') as input_csvfile:
         dict_reader = csv.DictReader(input_csvfile, delimiter=',')
 
-        if cfg['perform_dialogue_act_classification'] == True:
-            dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file']), 
-                                cfg['dialogue_act_classification']['train_classifier'],
-                                cfg['dialogue_act_classification']['test_set_percentage'])
+        if cfg['perform_dialogue_act_classification'].get(bool) == True:
+            dac_classifier = Classifier(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename(), 
+                                cfg['dialogue_act_classification']['train_classifier'].get(bool),
+                                cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
-            classified_output_csv_file = Path(cfg['dialogue_act_classification']['classified_output_csv_file'])
+            classified_output_csv_file = cfg['dialogue_act_classification']['classified_output_csv_file'].as_filename()
             logger.info(f'Performing Dialogue Act Classification and exporting to {classified_output_csv_file}')
                                 
             with open(classified_output_csv_file, mode='w', newline='', encoding='utf-8') as output_csvfile:      

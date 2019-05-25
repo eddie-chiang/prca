@@ -2,5 +2,4 @@ confuse
 gensim
 nltk
 pymongo
-pyyaml
 sshtunnel
