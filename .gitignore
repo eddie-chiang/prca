@@ -3,3 +3,6 @@
 
 # Python compiled file
 __pycache__
+
+# Environment specific config file.
+config.workspace.yaml
