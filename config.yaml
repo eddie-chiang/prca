@@ -4,7 +4,7 @@ log_file: ./Thesis/Assets/pullrequestcommentanalyzer.log
 perform_dialogue_act_classification: False
 
 bigquery:
-  pull_request_comments_results_csv_file: /Volumes/RamDisk/ME/results_20190503_1403.csv
+  pull_request_comments_results_csv_file: 
 
 ghtorrent_mongodb:
   host: dutihr.st.ewi.tudelft.nl
@@ -22,7 +22,7 @@ dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier.
   trained_classifier_file: ./Thesis/Assets/trained_dialogue_act_classifier.pickle
   test_set_percentage: 10 # Percentage of the labeled NPS Chat Corpus to be used as the test set (remainder will be the train set).
-  classified_output_csv_file: /Volumes/RamDisk/ME/results_20190503_1403_dac.csv
+  classified_output_csv_file: 
 
   manual_labeling:
     generate_csv_file: True
