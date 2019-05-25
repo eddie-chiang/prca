@@ -30,7 +30,7 @@ nltk.download()
 Download the following corpora:
 - nps_chat
 
-## Configure Confuse 
+## Configure [Confuse](http://confuse.readthedocs.org) 
 On macOS and Linux, add the following to the end of [venv activate script](.venv/bin/activate)
 ```bash
 # Confuse Config Search Directory
