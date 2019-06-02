@@ -45,7 +45,7 @@ def main():
                                   cfg['ghtorrent_mongodb']['password'].get(),
                                   cfg['ghtorrent_mongodb']['database'].get())
     # TODO remove this.
-    commentLoader.Load('opendatakit', 'collect', 279, 90929163)
+    commentLoader.load('opendatakit', 'collect', 279, 90929163)
 
     if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'].get(bool) == True:
         manual_label_file_generator = FileGenerator(pull_request_comments_csv_file,
