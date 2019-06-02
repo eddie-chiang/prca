@@ -25,6 +25,7 @@ class BigQueryCsvFileProcessor:
 
             total_rows = sum(1 for row in dict_reader)
             ctr = 0
+            loadedCommentCtr = 0
             progress_pct = 0
 
             # Seek the file back to the start in order to use dict_reader again.
@@ -36,7 +37,7 @@ class BigQueryCsvFileProcessor:
             self.logger.info(f'Start generating {dst_csv_file}...')
 
             field_names = dict_reader.fieldnames + \
-                ['pr_url'] + ['dialogue_act_classification_ml'] + \
+                ['comment_from_mongodb'] + ['comment_missing_from_mongodb'] + ['pr_url'] + ['dialogue_act_classification_ml'] + \
                 ['dialogue_act_classification_manual'] + \
                 ['dialogue_act_classification_manual_flag']
 
@@ -71,13 +72,19 @@ class BigQueryCsvFileProcessor:
             for row in dict_reader:
                 if len(row['body']) == 255:
                     # Likely to be a truncated comment, load using CommentLoader.
+                    row['comment_from_mongodb'] = True
+                    loadedCommentCtr += 1
                     owner = row['project_url'].replace(
                         'https://api.github.com/repos/', '')
                     owner = owner[0:owner.index('/')]
                     repo = row['project_url'][row['project_url'].rfind(
                         '/') + 1:]
-                    row['body'] = self.comment_loader.load(
+                    loaded_comment = self.comment_loader.load(
                         owner, repo, int(row['pullreq_id']), int(row['comment_id']))
+                    if loaded_comment is not None:
+                        row['body'] = loaded_comment
+                    else:
+                        row['comment_missing_from_mongodb'] = True
 
                 del row['description']
                 del row['latest_commit_date']
@@ -100,11 +107,11 @@ class BigQueryCsvFileProcessor:
                 writer.writerow(row)
                 ctr += 1
 
-                progress_pct_floor = math.floor(ctr / total_rows * 100)
+                progress_pct_floor = math.floor(ctr / total_rows * 10000)
                 if progress_pct_floor != progress_pct:
                     progress_pct = progress_pct_floor
                     self.logger.info(
-                        f'Progress: {progress_pct}%, row processed: {ctr}')
+                        f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment loaded: {loadedCommentCtr}')
 
             self.logger.info(
                 f'Processing completed, output file: {dst_csv_file}')
