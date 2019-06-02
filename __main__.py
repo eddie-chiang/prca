@@ -8,6 +8,7 @@ import pickle
 import sys
 from commentexpansion import CommentLoader
 from dialogueactclassification import Classifier
+from ghtorrent import BigQueryCsvFileProcessor
 from manuallabeling import FileGenerator
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
@@ -33,7 +34,7 @@ def main():
     pull_request_comments_csv_file = cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename(
     )
 
-    commentLoader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
+    comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
                                   cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
                                       int),
                                   cfg['ghtorrent_mongodb']['ssh_username'].get(),
@@ -44,8 +45,10 @@ def main():
                                   cfg['ghtorrent_mongodb']['username'].get(),
                                   cfg['ghtorrent_mongodb']['password'].get(),
                                   cfg['ghtorrent_mongodb']['database'].get())
-    # TODO remove this.
-    commentLoader.load('opendatakit', 'collect', 279, 90929163)
+
+    file_processor = BigQueryCsvFileProcessor(pull_request_comments_csv_file, comment_loader)
+    file_processor.process()
+    sys.exit()
 
     if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'].get(bool) == True:
         manual_label_file_generator = FileGenerator(pull_request_comments_csv_file,
