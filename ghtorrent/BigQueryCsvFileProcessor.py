@@ -4,6 +4,7 @@ import math
 from commentexpansion import CommentLoader
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
+from playsound import playsound
 from pathlib import Path
 
 
@@ -13,14 +14,16 @@ class BigQueryCsvFileProcessor:
     Also, it determines the language of a comment, and skip rows that are not in English.
 
     Args:
-        comment_loader: An instance of comment loader.
-        dac_classifier: An instance of Dialogue Act Classification classifier.
+        comment_loader (CommentLoader): An instance of comment loader.
+        dac_classifier (Classifier): An instance of Dialogue Act Classification classifier.
+        error_alert_sound (str): A path pointing to the error alert sound.
     """
 
-    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier):
+    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier, error_alert_sound: str):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.comment_loader = comment_loader
         self.dac_classifier = dac_classifier
+        self.error_alert_sound = error_alert_sound
 
     def process(self, csv_file):
         """Process the given BigQuery result .csv file.
@@ -119,29 +122,6 @@ class BigQueryCsvFileProcessor:
         is_eng = True
         is_deleted = False
 
-        if self.__is_english(row['body']) is not True:
-            # Comment detected as not in English, skip the row for further processing.
-            return None, False, is_truncated, is_deleted
-
-        if len(row['body']) == 255:
-            # Likely to be a truncated comment, load using CommentLoader.
-            is_truncated = True
-            row['comment_from_mongodb'] = True
-            owner = row['project_url'].replace(
-                'https://api.github.com/repos/', '')
-            owner = owner[0:owner.index('/')]
-            repo = row['project_url'][row['project_url'].rfind('/') + 1:]
-            loaded_comment = self.comment_loader.load(
-                owner, repo, int(row['pullreq_id']), int(row['comment_id']))
-            if loaded_comment is not None:
-                row['body'] = loaded_comment
-            else:
-                # Comment may have been deleted from GitHub, skip the row for further processing.
-                return None, is_eng, is_truncated, True
-
-        row['dialogue_act_classification_ml'] = self.dac_classifier.classify(
-            row['body'])
-
         # Remove unused columns.
         del row['description']
         del row['latest_commit_date']
@@ -161,6 +141,41 @@ class BigQueryCsvFileProcessor:
         del row['project_language_created_at']
         del row['forked_from']
         del row['intra_branch']
+
+        if self.__is_english(row['body']) is not True:
+            # Comment detected as not in English, skip the row for further processing.
+            return None, False, is_truncated, is_deleted
+
+        if len(row['body']) == 255:
+            # Likely to be a truncated comment, load using CommentLoader.
+            is_truncated = True
+            row['comment_from_mongodb'] = True
+            owner = row['project_url'].replace(
+                'https://api.github.com/repos/', '')
+            owner = owner[0:owner.index('/')]
+            repo = row['project_url'][row['project_url'].rfind('/') + 1:]
+            pullreq_id = int(row['pullreq_id'])
+            comment_id = int(row['comment_id'])
+
+            try:              
+                loaded_comment = self.comment_loader.load(
+                    owner, repo, pullreq_id, comment_id)
+
+                if loaded_comment is not None:
+                    row['body'] = loaded_comment
+                else:
+                    # Comment may have been deleted from GitHub, skip the row for further processing.
+                    is_deleted = True
+                    return None, is_eng, is_truncated, is_deleted
+            except Exception as e:
+                playsound(self.error_alert_sound, False)
+                self.logger.error(
+                    f'Failed to load comment, owner: {owner}, repo: {repo}, pullreq_id: {pullreq_id}, comment_id: {comment_id}, error: {e}')
+                # Return the row without dialogue act classification.
+                return row, is_eng, is_truncated, is_deleted
+
+        row['dialogue_act_classification_ml'] = self.dac_classifier.classify(
+            row['body'])
 
         return row, is_eng, is_truncated, is_deleted
 

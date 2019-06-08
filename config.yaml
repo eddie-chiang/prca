@@ -1,5 +1,7 @@
 log_file: ../Thesis/Assets/pullrequestcommentanalyzer.log
 
+error_alert_sound: ./assets/ComputerErrorAlert.mp3
+
 bigquery:
   pull_request_comments_results_csv_file: 
 

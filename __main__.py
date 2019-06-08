@@ -50,7 +50,7 @@ def main():
                                 cfg['dialogue_act_classification']['train_classifier'].get(bool), 
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
-    file_processor = BigQueryCsvFileProcessor(comment_loader, dac_classifier)
+    file_processor = BigQueryCsvFileProcessor(comment_loader, dac_classifier, cfg['error_alert_sound'].as_filename())
     file_processor.process(pull_request_comments_csv_file)
     sys.exit()
 
