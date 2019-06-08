@@ -1,8 +1,5 @@
 log_file: ../Thesis/Assets/pullrequestcommentanalyzer.log
 
-# Whether to classify dialogue act type on GH Torrent Pull Request Comments data?
-perform_dialogue_act_classification: False
-
 bigquery:
   pull_request_comments_results_csv_file: 
 
@@ -22,7 +19,6 @@ dialogue_act_classification:
   train_classifier: False # Whether to train/retrain Dialogue Act Classifier.
   trained_classifier_file: ../Thesis/Assets/trained_dialogue_act_classifier.pickle
   test_set_percentage: 10 # Percentage of the labeled NPS Chat Corpus to be used as the test set (remainder will be the train set).
-  classified_output_csv_file: 
 
   manual_labeling:
     generate_csv_file: True

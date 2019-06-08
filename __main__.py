@@ -35,8 +35,7 @@ def main():
     )
 
     comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
-                                  cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
-                                      int),
+                                  cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(int),
                                   cfg['ghtorrent_mongodb']['ssh_username'].get(),
                                   cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
                                   cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(),
@@ -46,7 +45,11 @@ def main():
                                   cfg['ghtorrent_mongodb']['password'].get(),
                                   cfg['ghtorrent_mongodb']['database'].get())
 
-    file_processor = BigQueryCsvFileProcessor(pull_request_comments_csv_file, comment_loader)
+    dac_classifier = Classifier(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename(), 
+                                cfg['dialogue_act_classification']['train_classifier'].get(bool), 
+                                cfg['dialogue_act_classification']['test_set_percentage'].as_number())
+
+    file_processor = BigQueryCsvFileProcessor(pull_request_comments_csv_file, comment_loader, dac_classifier)
     file_processor.process()
     sys.exit()
 
@@ -62,31 +65,6 @@ def main():
     comments = collections.defaultdict(set)
     with open(pull_request_comments_csv_file, mode='r', encoding='utf-8') as input_csvfile:
         dict_reader = csv.DictReader(input_csvfile, delimiter=',')
-
-        if cfg['perform_dialogue_act_classification'].get(bool) == True:
-            dac_classifier = Classifier(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename(),
-                                        cfg['dialogue_act_classification']['train_classifier'].get(
-                                            bool),
-                                        cfg['dialogue_act_classification']['test_set_percentage'].as_number())
-
-            classified_output_csv_file = cfg['dialogue_act_classification']['classified_output_csv_file'].as_filename(
-            )
-            logger.info(
-                f'Performing Dialogue Act Classification and exporting to {classified_output_csv_file}')
-
-            with open(classified_output_csv_file, mode='w', newline='', encoding='utf-8') as output_csvfile:
-                # Add a new column of the NLP classification
-                field_names = dict_reader.fieldnames + \
-                    ['dialogue_act_classification']
-                csv_writer = csv.DictWriter(
-                    output_csvfile, field_names, delimiter=',')
-                csv_writer.writeheader()
-
-                for row in dict_reader:
-                    dialogue_act_classification = dac_classifier.classify(
-                        row['body'])
-                    row['dialogue_act_classification'] = dialogue_act_classification
-                    csv_writer.writerow(row)
 
         # Seek the file back to the start in order to use dict_reader again.
         input_csvfile.seek(0)
