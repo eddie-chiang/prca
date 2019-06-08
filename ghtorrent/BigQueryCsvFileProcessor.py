@@ -4,6 +4,7 @@ import math
 from commentexpansion import CommentLoader
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
+from pathlib import Path
 
 
 class BigQueryCsvFileProcessor:
@@ -12,21 +13,31 @@ class BigQueryCsvFileProcessor:
     Also, it determines the language of a comment, and skip rows that are not in English.
 
     Args:
-        csv_file (Path): A Path object that points to the .csv file to be processed.
         comment_loader: An instance of comment loader.
         dac_classifier: An instance of Dialogue Act Classification classifier.
     """
 
-    def __init__(self, csv_file, comment_loader: CommentLoader, dac_classifier: Classifier):
+    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.csv_file = csv_file
         self.comment_loader = comment_loader
         self.dac_classifier = dac_classifier
 
-    def process(self):
-        self.logger.info(f'Start processing {self.csv_file}...')
-        dst_csv_file = self.csv_file.replace('.csv', '_cleaned_classified.csv')
-        with open(self.csv_file, mode='r', encoding='utf-8') as input, open(dst_csv_file, mode='w', encoding='utf-8') as output:
+    def process(self, csv_file):
+        """Process the given BigQuery result .csv file.
+
+        Args:
+            csv_file: File path that points to the .csv file to be processed.
+        """
+        final_file = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
+
+        if final_file.exists():
+            self.logger.info(
+                f'Processed file already exists, stop further processing: {final_file}')
+            return
+
+        self.logger.info(f'Start processing {csv_file}...')
+        dst_csv_file = Path(csv_file.replace('.csv', '_processing.csv'))
+        with open(csv_file, mode='r', encoding='utf-8') as input, open(dst_csv_file, mode='w', encoding='utf-8') as output:
             dict_reader = DictReader(input, delimiter=',')
 
             total_rows = sum(1 for row in dict_reader)
@@ -41,8 +52,7 @@ class BigQueryCsvFileProcessor:
             input.seek(0)
             next(dict_reader)  # Skip header row.
 
-            self.logger.info(
-                f'Number of rows in {self.csv_file}: {total_rows}')
+            self.logger.info(f'Number of rows in {csv_file}: {total_rows}')
             self.logger.info(f'Start generating {dst_csv_file}...')
 
             writer = DictWriter(output, self.__get_header_fields(
@@ -74,8 +84,8 @@ class BigQueryCsvFileProcessor:
                     self.logger.info(
                         f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, skipped: {skip_ctr}')
 
-            self.logger.info(
-                f'Processing completed, output file: {dst_csv_file}')
+        dst_csv_file.rename(final_file)
+        self.logger.info(f'Processing completed, output file: {final_file}')
 
     def __get_header_fields(self, field_names: list):
         field_names = field_names + ['comment_from_mongodb'] + ['pr_url'] + ['dialogue_act_classification_ml'] + [
