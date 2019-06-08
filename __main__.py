@@ -14,6 +14,7 @@ from manuallabeling import FileGenerator
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
 #from nltk.stem.porter import *
+from pathlib import Path
 
 
 def main():
@@ -45,7 +46,7 @@ def main():
                                   cfg['ghtorrent_mongodb']['password'].get(),
                                   cfg['ghtorrent_mongodb']['database'].get())
 
-    dac_classifier = Classifier(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename(), 
+    dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename()), 
                                 cfg['dialogue_act_classification']['train_classifier'].get(bool), 
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
