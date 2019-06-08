@@ -1,9 +1,9 @@
+import cld2
 import logging
 import math
 from commentexpansion import CommentLoader
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
-from nltk.classify import textcat
 
 
 class BigQueryCsvFileProcessor:
@@ -24,6 +24,7 @@ class BigQueryCsvFileProcessor:
         self.dac_classifier = dac_classifier
 
     def process(self):
+        self.logger.info(f'Start processing {self.csv_file}...')
         dst_csv_file = self.csv_file.replace('.csv', '_cleaned_classified.csv')
         with open(self.csv_file, mode='r', encoding='utf-8') as input, open(dst_csv_file, mode='w', encoding='utf-8') as output:
             dict_reader = DictReader(input, delimiter=',')
@@ -32,6 +33,7 @@ class BigQueryCsvFileProcessor:
             ctr = 0
             truncated_ctr = 0
             non_eng_ctr = 0
+            deleted_ctr = 0
             skip_ctr = 0
             progress_pct = 0
 
@@ -48,7 +50,7 @@ class BigQueryCsvFileProcessor:
             writer.writeheader()
 
             for row in dict_reader:
-                row, is_eng, is_truncated = self.__process_row(row)
+                row, is_eng, is_truncated, is_deleted = self.__process_row(row)
 
                 if row is not None:
                     writer.writerow(row)
@@ -61,13 +63,16 @@ class BigQueryCsvFileProcessor:
                 if is_eng is not True:
                     non_eng_ctr += 1
 
+                if is_deleted:
+                    deleted_ctr += 1
+
                 ctr += 1
 
                 progress_pct_floor = math.floor(ctr / total_rows * 10000)
                 if progress_pct_floor != progress_pct:
                     progress_pct = progress_pct_floor
                     self.logger.info(
-                        f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, non English rows: {non_eng_ctr}, rows skipped: {skip_ctr}')
+                        f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, skipped: {skip_ctr}')
 
             self.logger.info(
                 f'Processing completed, output file: {dst_csv_file}')
@@ -102,10 +107,11 @@ class BigQueryCsvFileProcessor:
     def __process_row(self, row):
         is_truncated = False
         is_eng = True
+        is_deleted = False
 
-        if self.__detect_language(row['body']) != "eng":
+        if self.__is_english(row['body']) is not True:
             # Comment detected as not in English, skip the row for further processing.
-            return None, False, is_truncated
+            return None, False, is_truncated, is_deleted
 
         if len(row['body']) == 255:
             # Likely to be a truncated comment, load using CommentLoader.
@@ -121,7 +127,7 @@ class BigQueryCsvFileProcessor:
                 row['body'] = loaded_comment
             else:
                 # Comment may have been deleted from GitHub, skip the row for further processing.
-                return None, is_eng, is_truncated
+                return None, is_eng, is_truncated, True
 
         row['dialogue_act_classification_ml'] = self.dac_classifier.classify(
             row['body'])
@@ -146,9 +152,19 @@ class BigQueryCsvFileProcessor:
         del row['forked_from']
         del row['intra_branch']
 
-        return row, is_eng, is_truncated
+        return row, is_eng, is_truncated, is_deleted
 
-    def __detect_language(self, comment):
-        text_cat = textcat.TextCat()
-        language = text_cat.guess_language(comment)
-        return language
+    def __is_english(self, comment):
+        is_reliable, _, details = cld2.detect(comment)
+
+        i = 0
+        for detail in details:
+            if i == 0 and is_reliable:
+                # Top language is much better than the 2nd best language, so just rely on the first result.
+                return True if detail.language_name == 'ENGLISH' else False
+            elif detail.language_name == 'ENGLISH':
+                # English being one of the top 3 probable language.
+                return True
+            i += 1
+
+        return False

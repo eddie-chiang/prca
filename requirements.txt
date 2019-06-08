@@ -1,6 +1,6 @@
+cld2-cffi
 confuse
 gensim
 nltk
 pymongo
-regex
 sshtunnel
