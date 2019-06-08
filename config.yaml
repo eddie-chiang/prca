@@ -1,6 +1,6 @@
 log_file: ../Thesis/Assets/pullrequestcommentanalyzer.log
 
-error_alert_sound: ./assets/ComputerErrorAlert.mp3
+error_alert_sound: ./assets/ComputerErrorAlert.mp3 # From http://soundbible.com/1540-Computer-Error-Alert.html, CC BY 3.0
 
 bigquery:
   pull_request_comments_results_csv_file: 
