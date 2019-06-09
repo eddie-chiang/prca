@@ -6,6 +6,7 @@ import logging
 import nltk
 import pickle
 import sys
+import time
 from commentexpansion import CommentLoader
 from dialogueactclassification import Classifier
 from ghtorrent import BigQueryCsvFileProcessor
@@ -15,6 +16,7 @@ from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
 #from nltk.stem.porter import *
 from pathlib import Path
+from playsound import playsound
 
 
 def main():
@@ -34,25 +36,37 @@ def main():
 
     pull_request_comments_csv_file = cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename(
     )
+    error_alert_sound_file = cfg['error_alert_sound_file'].as_filename()
 
     comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
-                                  cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(int),
-                                  cfg['ghtorrent_mongodb']['ssh_username'].get(),
-                                  cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
-                                  cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(),
-                                  cfg['ghtorrent_mongodb']['host'].get(),
-                                  cfg['ghtorrent_mongodb']['port'].get(int),
-                                  cfg['ghtorrent_mongodb']['username'].get(),
-                                  cfg['ghtorrent_mongodb']['password'].get(),
-                                  cfg['ghtorrent_mongodb']['database'].get(),
-                                  cfg['error_alert_sound'].as_filename())
+                                   cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
+                                       int),
+                                   cfg['ghtorrent_mongodb']['ssh_username'].get(),
+                                   cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
+                                   cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(
+    ),
+        cfg['ghtorrent_mongodb']['host'].get(),
+        cfg['ghtorrent_mongodb']['port'].get(int),
+        cfg['ghtorrent_mongodb']['username'].get(),
+        cfg['ghtorrent_mongodb']['password'].get(),
+        cfg['ghtorrent_mongodb']['database'].get(),
+        error_alert_sound_file)
 
-    dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename()), 
-                                cfg['dialogue_act_classification']['train_classifier'].get(bool), 
+    dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename()),
+                                cfg['dialogue_act_classification']['train_classifier'].get(
+                                    bool),
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
-    file_processor = BigQueryCsvFileProcessor(comment_loader, dac_classifier)
-    file_processor.process(pull_request_comments_csv_file)
+    try:
+        file_processor = BigQueryCsvFileProcessor(
+            comment_loader, dac_classifier)
+        file_processor.process(pull_request_comments_csv_file)
+    except Exception as e:
+        logger.error(f'Failed to process the BigQuery .csv file, error: {e}')
+        # Continuously make alert sound until manual interruption.
+        while True:
+            playsound(error_alert_sound_file, False)
+            time.sleep(5)
     sys.exit()
 
     if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'].get(bool) == True:
