@@ -51,7 +51,8 @@ class BigQueryCsvFileProcessor:
         skip_ctr = 0
         progress_pct = 0
 
-        data_frame = pandas.read_csv(csv_file, chunksize=100)
+        data_frame = pandas.read_csv(
+            csv_file, chunksize=100, converters={'body': str})
         for chunk in data_frame:
             # Get chunk size first before any filtering.
             chunk_size = chunk.shape[0]
