@@ -29,16 +29,19 @@ class BigQueryCsvFileProcessor:
         Args:
             csv_file: File path that points to the .csv file to be processed.
         """
-        final_file = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
+        final_csv = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
+        final_stats_csv = Path(csv_file.replace('.csv', '_cleaned_classified_stats.csv'))
 
-        if final_file.exists():
+        if final_csv.exists():
             self.logger.info(
-                f'Processed file already exists, stop further processing: {final_file}')
+                f'Processed file already exists, stop further processing: {final_csv}')
             return
 
         self.logger.info(f'Start processing {csv_file}...')
 
-        dst_csv_file = Path(csv_file.replace('.csv', '_processing.csv'))
+        tmp_csv = Path(csv_file.replace('.csv', '_processing.csv'))
+        tmp_stats_csv = Path(
+            csv_file.replace('.csv', '_processing_stats.csv'))
 
         data_frame = pandas.read_csv(csv_file)
         total_rows = data_frame.shape[0]
@@ -46,13 +49,30 @@ class BigQueryCsvFileProcessor:
 
         ctr = 0
         truncated_ctr = 0
-        non_eng_ctr = 0
         deleted_ctr = 0
+        non_eng_ctr = 0
         skip_ctr = 0
         progress_pct = 0
+        temp_stats_df = None
 
+        if tmp_csv.exists():
+            temp_total_rows = pandas.read_csv(tmp_csv).shape[0]
+            temp_stats_df = pandas.read_csv(tmp_stats_csv)
+            ctr = temp_stats_df['rows_processed'].iat[0]
+            truncated_ctr = temp_stats_df['comments_truncated'].iat[0]
+            deleted_ctr = temp_stats_df['deleted'].iat[0]
+            non_eng_ctr = temp_stats_df['non_english'].iat[0]
+            skip_ctr = temp_stats_df['skipped'].iat[0]
+
+            self.logger.warn(
+                f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows processed: {ctr}. Resuming processing...')
+        else:
+            stats = {'rows_processed': [0], 'comments_truncated': [0], 'deleted': [0], 'non_english': [0], 'skipped': [0]}
+            temp_stats_df = pandas.DataFrame(data=stats)
+
+        # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
-            csv_file, chunksize=100, converters={'body': str})
+            csv_file, chunksize=100, converters={'body': str}, skiprows=range(1, ctr + 1))
         for chunk in data_frame:
             # Get chunk size first before any filtering.
             chunk_size = chunk.shape[0]
@@ -85,12 +105,22 @@ class BigQueryCsvFileProcessor:
                 lambda row: self.dac_classifier.classify(row['body']),
                 axis=1)
 
-            chunk.to_csv(dst_csv_file,
+            chunk.to_csv(tmp_csv,
                          index=False,
                          header=False if ctr > 0 else True,
                          mode='w' if ctr == 0 else 'a')
 
             ctr += chunk_size
+
+            # Save the counters for resume purpose.
+            temp_stats_df['rows_processed'].iat[0] = ctr
+            temp_stats_df['comments_truncated'].iat[0] = truncated_ctr
+            temp_stats_df['deleted'].iat[0] = deleted_ctr
+            temp_stats_df['non_english'].iat[0] = non_eng_ctr
+            temp_stats_df['skipped'].iat[0] = skip_ctr
+            temp_stats_df.to_csv(tmp_stats_csv,
+                                 index=False, header=True, mode='w')
+
             # Progress precision: 0.01%.
             progress_pct_floor = math.floor(ctr / total_rows * 10000)
             if progress_pct_floor != progress_pct:
@@ -98,8 +128,9 @@ class BigQueryCsvFileProcessor:
                 self.logger.info(
                     f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, skipped: {skip_ctr}')
 
-        dst_csv_file.rename(final_file)
-        self.logger.info(f'Processing completed, output file: {final_file}')
+        tmp_csv.rename(final_csv)
+        tmp_stats_csv.rename(final_stats_csv)
+        self.logger.info(f'Processing completed, output file: {final_csv}')
 
     def __get_header_fields(self, df: pandas.DataFrame):
         # Remove unused columns.
