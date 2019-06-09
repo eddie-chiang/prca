@@ -56,6 +56,9 @@ class BigQueryCsvFileProcessor:
 
         data_frame = pandas.read_csv(csv_file, chunksize=100)
         for chunk in data_frame:
+            # Get chunk size first before any filtering.
+            chunk_size = chunk.shape[0] 
+            
             # Add new columns
             chunk = self.__get_header_fields(chunk)
 
@@ -89,7 +92,7 @@ class BigQueryCsvFileProcessor:
                          header=False if ctr > 0 else True,
                          mode='w' if ctr == 0 else 'a')
 
-            ctr += chunk.shape[0]
+            ctr += chunk_size
             # Progress precision: 0.01%.
             progress_pct_floor = math.floor(ctr / total_rows * 10000)
             if progress_pct_floor != progress_pct:
