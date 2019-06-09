@@ -44,13 +44,14 @@ def main():
                                   cfg['ghtorrent_mongodb']['port'].get(int),
                                   cfg['ghtorrent_mongodb']['username'].get(),
                                   cfg['ghtorrent_mongodb']['password'].get(),
-                                  cfg['ghtorrent_mongodb']['database'].get())
+                                  cfg['ghtorrent_mongodb']['database'].get(),
+                                  cfg['error_alert_sound'].as_filename())
 
     dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename()), 
                                 cfg['dialogue_act_classification']['train_classifier'].get(bool), 
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
-    file_processor = BigQueryCsvFileProcessor(comment_loader, dac_classifier, cfg['error_alert_sound'].as_filename())
+    file_processor = BigQueryCsvFileProcessor(comment_loader, dac_classifier)
     file_processor.process(pull_request_comments_csv_file)
     sys.exit()
 

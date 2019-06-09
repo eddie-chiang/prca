@@ -5,7 +5,6 @@ import pandas
 from commentexpansion import CommentLoader
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
-from playsound import playsound
 from pathlib import Path
 
 
@@ -17,14 +16,12 @@ class BigQueryCsvFileProcessor:
     Args:
         comment_loader (CommentLoader): An instance of comment loader.
         dac_classifier (Classifier): An instance of Dialogue Act Classification classifier.
-        error_alert_sound (str): A path pointing to the error alert sound.
     """
 
-    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier, error_alert_sound: str):
+    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.comment_loader = comment_loader
         self.dac_classifier = dac_classifier
-        self.error_alert_sound = error_alert_sound
 
     def process(self, csv_file):
         """Process the given BigQuery result .csv file.
@@ -57,8 +54,8 @@ class BigQueryCsvFileProcessor:
         data_frame = pandas.read_csv(csv_file, chunksize=100)
         for chunk in data_frame:
             # Get chunk size first before any filtering.
-            chunk_size = chunk.shape[0] 
-            
+            chunk_size = chunk.shape[0]
+
             # Add new columns
             chunk = self.__get_header_fields(chunk)
 
@@ -149,17 +146,11 @@ class BigQueryCsvFileProcessor:
             owner = owner[0:owner.index('/')]
             repo = project_url[project_url.rfind('/') + 1:]
 
-            try:
-                comment = self.comment_loader.load(
-                    owner, repo, pullreq_id, comment_id)
+            comment = self.comment_loader.load(
+                owner, repo, pullreq_id, comment_id)
 
-                if comment is None:
-                    # Comment may have been deleted from GitHub, skip the row for further processing.
-                    is_deleted = True
-            except Exception as e:
-                playsound(self.error_alert_sound, False)
-                self.logger.error(
-                    f'Failed to load comment, owner: {owner}, repo: {repo}, pullreq_id: {pullreq_id}, comment_id: {comment_id}, error: {e}')
+            # Comment may have been deleted from GitHub, skip the row for further processing.
+            is_deleted = False if comment is not None else True
 
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
 
