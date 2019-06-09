@@ -59,6 +59,7 @@ class BigQueryCsvFileProcessor:
             # Add new columns
             chunk = self.__get_header_fields(chunk)
 
+            # Process comments.
             chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted']] = chunk.apply(
                 lambda row: self.__load_comment(
                     row['body'],
@@ -78,7 +79,8 @@ class BigQueryCsvFileProcessor:
             chunk.drop(columns='is_deleted', inplace=True)
             chunk = chunk[chunk['body'].notnull()]
 
-            chunk[['dialogue_act_classification_ml']] = chunk.apply(
+            # Dialogue Act Classificaiton.
+            chunk['dialogue_act_classification_ml'] = chunk.apply(
                 lambda row: self.dac_classifier.classify(row['body']),
                 axis=1)
 
