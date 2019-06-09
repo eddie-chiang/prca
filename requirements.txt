@@ -2,6 +2,7 @@ cld2-cffi
 confuse
 gensim
 nltk
+pandas
 playsound
 pymongo
 PyObjC
