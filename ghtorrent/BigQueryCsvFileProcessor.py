@@ -30,7 +30,8 @@ class BigQueryCsvFileProcessor:
             csv_file: File path that points to the .csv file to be processed.
         """
         final_csv = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
-        final_stats_csv = Path(csv_file.replace('.csv', '_cleaned_classified_stats.csv'))
+        final_stats_csv = Path(csv_file.replace(
+            '.csv', '_cleaned_classified_stats.csv'))
 
         if final_csv.exists():
             self.logger.info(
@@ -67,7 +68,8 @@ class BigQueryCsvFileProcessor:
             self.logger.warn(
                 f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows processed: {ctr}. Resuming processing...')
         else:
-            stats = {'rows_processed': [0], 'comments_truncated': [0], 'deleted': [0], 'non_english': [0], 'skipped': [0]}
+            stats = {'rows_processed': [0], 'comments_truncated': [
+                0], 'deleted': [0], 'non_english': [0], 'skipped': [0]}
             temp_stats_df = pandas.DataFrame(data=stats)
 
         # Skip any previously processed rows, but do not skip the header.
@@ -100,15 +102,14 @@ class BigQueryCsvFileProcessor:
             chunk.drop(columns='is_deleted', inplace=True)
             chunk = chunk[chunk['body'].notnull()]
 
-            # Dialogue Act Classificaiton.
-            chunk['dialogue_act_classification_ml'] = chunk.apply(
-                lambda row: self.dac_classifier.classify(row['body']),
-                axis=1)
+            if chunk.shape[0] > 0:
+                chunk['dialogue_act_classification_ml'] = chunk.apply(
+                    lambda row: self.dac_classifier.classify(row['body']), axis=1)
 
-            chunk.to_csv(tmp_csv,
-                         index=False,
-                         header=False if ctr > 0 else True,
-                         mode='w' if ctr == 0 else 'a')
+                chunk.to_csv(tmp_csv,
+                            index=False,
+                            header=False if ctr > 0 else True,
+                            mode='w' if ctr == 0 else 'a')
 
             ctr += chunk_size
 
