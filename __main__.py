@@ -62,7 +62,7 @@ def main():
             comment_loader, dac_classifier)
         file_processor.process(pull_request_comments_csv_file)
     except Exception as e:
-        logger.error(f'Failed to process the BigQuery .csv file, error: {e}')
+        logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.
         while True:
             playsound(error_alert_sound_file, False)
