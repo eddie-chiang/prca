@@ -66,7 +66,7 @@ class BigQueryCsvFileProcessor:
             skip_ctr = temp_stats_df['skipped'].iat[0]
 
             self.logger.warn(
-                f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows processed: {ctr}. Resuming processing...')
+                f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows processed: {ctr}. Resuming...')
         else:
             stats = {'rows_processed': [0], 'comments_truncated': [
                 0], 'deleted': [0], 'non_english': [0], 'skipped': [0]}
