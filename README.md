@@ -39,5 +39,6 @@ export PULLREQUESTCOMMENTANALYZERDIR
 ```
 On Windows, add the following to the end of [Activate.ps1](.venv\Scripts\Activate.ps1)
 ```powershell
+# Confuse Config Search Directory
 $env:PULLREQUESTCOMMENTANALYZERDIR="./pullrequestcommentanalyzer/"
 ```
