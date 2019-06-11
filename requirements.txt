@@ -5,5 +5,4 @@ nltk
 pandas
 playsound
 pymongo
-PyObjC
 sshtunnel

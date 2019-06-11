@@ -12,7 +12,12 @@ python -m venv .venv
 ```
 
 ## Install dependent packages
-On macOS and Linux:
+On macOS:
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m pip install PyObjC
+```
+On Linux:
 ```bash
 python3 -m pip install -r requirements.txt
 ```
