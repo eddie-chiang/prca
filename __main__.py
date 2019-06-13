@@ -57,10 +57,11 @@ def main():
                                     bool),
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
+
     try:
         file_processor = BigQueryCsvFileProcessor(
             comment_loader, dac_classifier)
-        file_processor.process(pull_request_comments_csv_file)
+        pull_request_comments_csv_file_processed, pull_request_comments_csv_file_processed_stats = file_processor.process(pull_request_comments_csv_file)
     except Exception as e:
         logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.

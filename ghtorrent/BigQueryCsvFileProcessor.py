@@ -28,15 +28,21 @@ class BigQueryCsvFileProcessor:
 
         Args:
             csv_file: File path that points to the .csv file to be processed.
+
+        Returns:
+            tuple: (
+                Path: The file path of the processed files.
+                Path: The file containing the processing statistics.
+            )
         """
         final_csv = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
         final_stats_csv = Path(csv_file.replace(
             '.csv', '_cleaned_classified_stats.csv'))
 
-        if final_csv.exists():
+        if final_csv.exists() and final_stats_csv.exists():
             self.logger.info(
                 f'Processed file already exists, stop further processing: {final_csv}')
-            return
+            return final_csv, final_stats_csv
 
         self.logger.info(f'Start processing {csv_file}...')
 
@@ -132,6 +138,8 @@ class BigQueryCsvFileProcessor:
         tmp_csv.rename(final_csv)
         tmp_stats_csv.rename(final_stats_csv)
         self.logger.info(f'Processing completed, output file: {final_csv}')
+
+        return final_csv, final_stats_csv
 
     def __get_header_fields(self, df: pandas.DataFrame):
         # Remove unused columns.
