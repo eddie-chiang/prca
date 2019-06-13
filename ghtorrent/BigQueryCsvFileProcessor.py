@@ -2,7 +2,7 @@ import cld2
 import logging
 import math
 import pandas
-from commentexpansion import CommentLoader
+from commentprocessing import CommentLoader
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
 from pathlib import Path

@@ -7,7 +7,7 @@ import nltk
 import pickle
 import sys
 import time
-from commentexpansion import CommentLoader
+from commentprocessing import CommentLoader
 from dialogueactclassification import Classifier
 from ghtorrent import BigQueryCsvFileProcessor
 from manuallabeling import FileGenerator
