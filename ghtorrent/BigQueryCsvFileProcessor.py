@@ -1,8 +1,8 @@
-import cld2
+
 import logging
 import math
 import pandas
-from commentprocessing import CommentLoader
+from commentprocessing import CommentLoader, LanguageDetector
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
 from pathlib import Path
@@ -176,7 +176,7 @@ class BigQueryCsvFileProcessor:
         is_eng = True
         is_deleted = False
 
-        if self.__is_english(comment) is not True:
+        if LanguageDetector.is_english(comment) is not True:
             # Comment detected as not in English, skip the row for further processing.
             is_eng = False
             comment = None
@@ -195,17 +195,3 @@ class BigQueryCsvFileProcessor:
 
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
 
-    def __is_english(self, comment):
-        is_reliable, _, details = cld2.detect(comment)
-
-        i = 0
-        for detail in details:
-            if i == 0 and is_reliable:
-                # Top language is much better than the 2nd best language, so just rely on the first result.
-                return True if detail.language_name == 'ENGLISH' else False
-            elif detail.language_name == 'ENGLISH':
-                # English being one of the top 3 probable language.
-                return True
-            i += 1
-
-        return False
