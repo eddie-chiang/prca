@@ -164,10 +164,7 @@ class BigQueryCsvFileProcessor:
 
         # Add new columns.
         df['comment_from_mongodb'] = ""
-        df['pr_url'] = ""
         df['dialogue_act_classification_ml'] = ""
-        df['dialogue_act_classification_manual_flag'] = ""
-        df['dialogue_act_classification_manual'] = ""
 
         return df
 
