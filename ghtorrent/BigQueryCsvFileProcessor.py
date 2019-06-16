@@ -52,7 +52,7 @@ class BigQueryCsvFileProcessor:
 
         data_frame = pandas.read_csv(csv_file)
         total_rows = data_frame.shape[0]
-        self.logger.info(f'Number of rows in {csv_file}: {total_rows}')
+        self.logger.info(f'No. of rows in {csv_file}: {total_rows}')
 
         ctr = 0
         truncated_ctr = 0
