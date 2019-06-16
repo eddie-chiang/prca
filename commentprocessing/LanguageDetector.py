@@ -5,7 +5,7 @@ class LanguageDetector:
     """A language detector class determines whether a given comment is likely to be in the specified language."""
 
     @staticmethod
-    def is_english(comment):
+    def is_english(comment: str):
         """Determines if the given comment is in English.
 
         Args:
