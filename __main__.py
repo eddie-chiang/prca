@@ -68,15 +68,11 @@ def main():
         while True:
             playsound(error_alert_sound_file, False)
             time.sleep(5)
-    sys.exit()
+  
+    manual_labelling_file_generator = FileGenerator()
+    manual_labelling_file_generator.generate(pull_request_comments_csv_file_processed)
 
-    if cfg['dialogue_act_classification']['manual_labeling']['generate_csv_file'].get(bool) == True:
-        manual_label_file_generator = FileGenerator(pull_request_comments_csv_file,
-                                                    cfg['dialogue_act_classification']['manual_labeling']['csv_file'].as_filename(
-                                                    ),
-                                                    cfg['dialogue_act_classification']['manual_labeling']['random_sample_line_numbers_csv_file'].as_filename())
-        sys.exit()
-        manual_label_file_generator.generate()
+    sys.exit()
 
     # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     comments = collections.defaultdict(set)

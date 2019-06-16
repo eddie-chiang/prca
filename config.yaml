@@ -23,6 +23,4 @@ dialogue_act_classification:
   test_set_percentage: 10 # Percentage of the labeled NPS Chat Corpus to be used as the test set (remainder will be the train set).
 
   manual_labeling:
-    generate_csv_file: True
-    csv_file: ../Thesis/Assets/manual_labeled.csv
     random_sample_line_numbers_csv_file: ../Thesis/Assets/random_sample_line_numbers.csv
