@@ -31,7 +31,7 @@ class BigQueryCsvFileProcessor:
 
         Returns:
             tuple: (
-                Path: The file path of the processed files.
+                Path: The file path of the processed file.
                 Path: The file containing the processing statistics.
             )
         """
