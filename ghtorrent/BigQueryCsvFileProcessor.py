@@ -47,7 +47,8 @@ class BigQueryCsvFileProcessor:
 
         self.logger.info(f'Start processing {csv_file}...')
 
-        tmp_csv = Path(csv_file.absolute().as_posix().replace('.csv', '_processing.csv'))
+        tmp_csv = Path(csv_file.absolute().as_posix().replace(
+            '.csv', '_processing.csv'))
         tmp_stats_csv = Path(
             csv_file.absolute().as_posix().replace('.csv', '_processing_stats.csv'))
 
@@ -170,7 +171,7 @@ class BigQueryCsvFileProcessor:
         data_frame = pandas.read_csv(processed_csv_file)
         total_rows = data_frame.shape[0]
         self.logger.info(f'No. of rows in {processed_csv_file}: {total_rows}')
-        
+
         ctr = 0
         progress_pct = 0
 
@@ -211,32 +212,34 @@ class BigQueryCsvFileProcessor:
 
             # Commits on the Pull Request, e.g. https://api.github.com/repos/realm/realm-java/pulls/5473/commits
             # df['pr_commits_prior_to_comment'] = ''
-            
+
             # The comment, e.g. https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
             # df['comment_author_association'] = ''
             # df['comment_updated_at'] = ''
             # df['comment_html_url'] = ''
             chunk[['comment_author_association', 'comment_updated_at', 'comment_html_url']] = chunk.apply(
-                lambda row: 
+                lambda row:
                     self.__load_pull_request_info(
-                            row['project_url'],
-                            int(row['pullreq_id']),
-                            int(row['comment_id']))
-                    if row['comment_author_association'] == '' 
-                        or row['comment_updated_at'] == '' 
-                        or row['comment_html_url'] == '' 
-                    else 
-                        pandas.Series(['TEST-incode', 'TEST-incode', 'TEST-incode']),
+                        row['project_url'],
+                        int(row['pullreq_id']),
+                        int(row['comment_id']))
+                    if pandas.isna(row['comment_author_association'])
+                        or pandas.isna(row['comment_updated_at'])
+                        or pandas.isna(row['comment_html_url'])
+                    else
+                        pandas.Series([
+                                row['comment_author_association'],
+                                row['comment_updated_at'],
+                                row['comment_html_url']
+                        ]),
                 axis='columns')
 
             # The commit relevant to the comment, e.g. https://api.github.com/repos/realm/realm-java/commits/2370da153d75ed948e80fb07cd39d38f26aabeeb
             # df['pr_commit_file_status'] = ''
             # df['pr_commit_file_additions'] = ''
             # df['pr_commit_file_deletions'] = ''
-            # df['pr_commit_file_changes'] = ''           
-            
-            
-            
+            # df['pr_commit_file_changes'] = ''
+
             chunk.to_csv(tmp_csv,
                          index=False,
                          header=False if ctr > 0 else True,
@@ -263,40 +266,40 @@ class BigQueryCsvFileProcessor:
 
     def __get_header_fields(self, df: pandas.DataFrame):
         columns = ['project_id',
-                'project_url', 
-                'pull_request_id', 
-                'pullreq_id', 
-                'user_id', 
-                'comment_id', 
-                'position', 
-                'body', 
-                'commit_id', 
-                'created_at', 
-                'comment_from_mongodb', 
-                'dialogue_act_classification_ml', 
-                'pr_comments_cnt',
-                'pr_review_comments_cnt',
-                'pr_commits_cnt',
-                'pr_additions',
-                'pr_deletions',
-                'pr_changed_files',
-                'pr_merged_by_user_id',
-                'comment_author_association',
-                'comment_updated_at',
-                'comment_html_url',
-                'commit_file_status',
-                'commit_file_additions',
-                'commit_file_deletions',
-                'commit_file_changes']
-        
+                   'project_url',
+                   'pull_request_id',
+                   'pullreq_id',
+                   'user_id',
+                   'comment_id',
+                   'position',
+                   'body',
+                   'commit_id',
+                   'created_at',
+                   'comment_from_mongodb',
+                   'dialogue_act_classification_ml',
+                   'pr_comments_cnt',
+                   'pr_review_comments_cnt',
+                   'pr_commits_cnt',
+                   'pr_additions',
+                   'pr_deletions',
+                   'pr_changed_files',
+                   'pr_merged_by_user_id',
+                   'comment_author_association',
+                   'comment_updated_at',
+                   'comment_html_url',
+                   'commit_file_status',
+                   'commit_file_additions',
+                   'commit_file_deletions',
+                   'commit_file_changes']
+
         # Remove unused columns.
         for col in df:
-            if col not in columns:        
+            if col not in columns:
                 df.drop(columns=col, inplace=True)
 
         # Add missing columns
         for col in columns:
-            if col not in df.columns:        
+            if col not in df.columns:
                 df[col] = ''
 
         return df
@@ -326,6 +329,5 @@ class BigQueryCsvFileProcessor:
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
 
     def __load_pull_request_info(self, project_url: str, pullreq_id: int, comment_id: int):
-        
 
         return pandas.Series([project_url, pullreq_id, comment_id])
