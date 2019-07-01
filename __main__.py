@@ -14,7 +14,7 @@ from manuallabeling import FileGenerator
 # from gensim.utils import simple_preprocess
 from nltk.metrics.scores import precision, recall
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
-#from nltk.stem.porter import *
+# from nltk.stem.porter import *
 from pathlib import Path
 from playsound import playsound
 
@@ -34,16 +34,16 @@ def main():
     logger = logging.getLogger('pullrequestcommentanalyzer')
     logger.info('Program started.')
 
-    pull_request_comments_csv_file = cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename(
-    )
+    pull_request_comments_csv_file = Path(
+        cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename())
     error_alert_sound_file = cfg['error_alert_sound_file'].as_filename()
 
     comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
                                    cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
-                                       int),
-                                   cfg['ghtorrent_mongodb']['ssh_username'].get(),
-                                   cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
-                                   cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(
+        int),
+        cfg['ghtorrent_mongodb']['ssh_username'].get(),
+        cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
+        cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(
     ),
         cfg['ghtorrent_mongodb']['host'].get(),
         cfg['ghtorrent_mongodb']['port'].get(int),
@@ -57,20 +57,23 @@ def main():
                                     bool),
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
-
     try:
         file_processor = BigQueryCsvFileProcessor(
             comment_loader, dac_classifier)
-        pull_request_comments_csv_file_processed, pull_request_comments_csv_file_processed_stats = file_processor.process(pull_request_comments_csv_file)
+        pull_request_comments_csv_file_processed, pull_request_comments_csv_file_processed_stats = file_processor.process(
+            pull_request_comments_csv_file)
+        file_processor.reprocess(pull_request_comments_csv_file_processed,
+                                 pull_request_comments_csv_file_processed_stats)
     except Exception as e:
         logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.
         while True:
             playsound(error_alert_sound_file, False)
             time.sleep(5)
-  
+
     manual_labelling_file_generator = FileGenerator()
-    manual_labelling_file_generator.generate(pull_request_comments_csv_file_processed)
+    manual_labelling_file_generator.generate(
+        pull_request_comments_csv_file_processed)
 
     # sys.exit()
 

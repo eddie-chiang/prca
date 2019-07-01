@@ -23,11 +23,11 @@ class BigQueryCsvFileProcessor:
         self.comment_loader = comment_loader
         self.dac_classifier = dac_classifier
 
-    def process(self, csv_file):
+    def process(self, csv_file: Path):
         """Process the given BigQuery result .csv file.
 
         Args:
-            csv_file: File path that points to the .csv file to be processed.
+            csv_file (Path): File path that points to the .csv file to be processed.
 
         Returns:
             tuple: (
@@ -35,8 +35,9 @@ class BigQueryCsvFileProcessor:
                 Path: The file containing the processing statistics.
             )
         """
-        final_csv = Path(csv_file.replace('.csv', '_cleaned_classified.csv'))
-        final_stats_csv = Path(csv_file.replace(
+        final_csv = Path(csv_file.absolute().as_posix().replace(
+            '.csv', '_cleaned_classified.csv'))
+        final_stats_csv = Path(csv_file.absolute().as_posix().replace(
             '.csv', '_cleaned_classified_stats.csv'))
 
         if final_csv.exists() and final_stats_csv.exists():
@@ -46,9 +47,9 @@ class BigQueryCsvFileProcessor:
 
         self.logger.info(f'Start processing {csv_file}...')
 
-        tmp_csv = Path(csv_file.replace('.csv', '_processing.csv'))
+        tmp_csv = Path(csv_file.absolute().as_posix().replace('.csv', '_processing.csv'))
         tmp_stats_csv = Path(
-            csv_file.replace('.csv', '_processing_stats.csv'))
+            csv_file.absolute().as_posix().replace('.csv', '_processing_stats.csv'))
 
         data_frame = pandas.read_csv(csv_file)
         total_rows = data_frame.shape[0]
@@ -74,8 +75,13 @@ class BigQueryCsvFileProcessor:
             self.logger.warn(
                 f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows processed: {ctr}. Resuming...')
         else:
-            stats = {'rows_processed': [0], 'comments_truncated': [
-                0], 'deleted': [0], 'non_english': [0], 'skipped': [0]}
+            stats = {
+                'rows_processed': [0],
+                'comments_truncated': [0],
+                'deleted': [0],
+                'non_english': [0],
+                'total_skipped': [0]
+            }
             temp_stats_df = pandas.DataFrame(data=stats)
 
         # Skip any previously processed rows, but do not skip the header.
@@ -95,7 +101,7 @@ class BigQueryCsvFileProcessor:
                     row['project_url'],
                     int(row['pullreq_id']),
                     int(row['comment_id'])),
-                axis=1)
+                axis='columns')
 
             truncated_ctr += len(chunk[chunk['comment_from_mongodb']
                                        == True].index)
@@ -113,9 +119,9 @@ class BigQueryCsvFileProcessor:
                     lambda row: self.dac_classifier.classify(row['body']), axis=1)
 
                 chunk.to_csv(tmp_csv,
-                            index=False,
-                            header=False if ctr > 0 else True,
-                            mode='w' if ctr == 0 else 'a')
+                             index=False,
+                             header=False if ctr > 0 else True,
+                             mode='w' if ctr == 0 else 'a')
 
             ctr += chunk_size
 
@@ -124,7 +130,7 @@ class BigQueryCsvFileProcessor:
             temp_stats_df['comments_truncated'].iat[0] = truncated_ctr
             temp_stats_df['deleted'].iat[0] = deleted_ctr
             temp_stats_df['non_english'].iat[0] = non_eng_ctr
-            temp_stats_df['skipped'].iat[0] = skip_ctr
+            temp_stats_df['total_skipped'].iat[0] = skip_ctr
             temp_stats_df.to_csv(tmp_stats_csv,
                                  index=False, header=True, mode='w')
 
@@ -133,13 +139,91 @@ class BigQueryCsvFileProcessor:
             if progress_pct_floor != progress_pct:
                 progress_pct = progress_pct_floor
                 self.logger.info(
-                    f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, skipped: {skip_ctr}')
+                    f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, total skipped: {skip_ctr}')
 
         tmp_csv.rename(final_csv)
         tmp_stats_csv.rename(final_stats_csv)
         self.logger.info(f'Processing completed, output file: {final_csv}')
 
         return final_csv, final_stats_csv
+
+    def reprocess(self, processed_csv_file: Path, processed_stats_csv_file: Path):
+        """Reprocess the given processed BigQuery result .csv file, to add any missing information.
+
+        Args:
+            processed_csv_file (Path): File path that points to the .csv file that was previously processed.
+            processed_stats_csv_file (Path): File path that points to the .csv file with the previously processed statistics.
+
+        Returns:
+            tuple: (
+                Path: The file path of the processed file.
+                Path: The file containing the processing statistics.
+            )
+        """
+        tmp_csv = Path(processed_csv_file.absolute(
+        ).as_posix().replace('.csv', '_reprocessing.csv'))
+        tmp_stats_csv = Path(processed_stats_csv_file.absolute().as_posix().replace(
+            '.csv', '_reprocessing_stats.csv'))
+
+        self.logger.info(f'Start reprocessing {processed_csv_file}...')
+
+        data_frame = pandas.read_csv(processed_csv_file)
+        total_rows = data_frame.shape[0]
+        self.logger.info(f'No. of rows in {processed_csv_file}: {total_rows}')
+
+        if tmp_csv.exists():
+            temp_total_rows = pandas.read_csv(tmp_csv).shape[0]
+            temp_stats_df = pandas.read_csv(tmp_stats_csv)
+            ctr = temp_stats_df['rows_reprocessed'].iat[0]
+
+            self.logger.warn(
+                f'The file {tmp_csv.name} already exists, no. of rows in the file: {temp_total_rows}, no. of rows reprocessed: {ctr}. Resuming...')
+        else:
+            stats_df = pandas.read_csv(processed_stats_csv_file)
+            stats = {
+                'rows_processed': stats_df['rows_processed'].iat[0],
+                'comments_truncated': stats_df['comments_truncated'].iat[0],
+                'deleted': stats_df['deleted'].iat[0],
+                'non_english': stats_df['non_english'].iat[0],
+                'total_skipped': stats_df['total_skipped'].iat[0],
+                'rows_reprocessed': [0]
+            }
+            temp_stats_df = pandas.DataFrame(data=stats)
+
+        # Skip any previously processed rows, but do not skip the header.
+        data_frame = pandas.read_csv(processed_csv_file, chunksize=100, converters={
+                                     'body': str}, skiprows=range(1, ctr + 1))
+        for chunk in data_frame:
+            chunk[['comment_author_association']] = chunk.apply(
+                lambda row: self.__load_pull_request_info(
+                    row['project_url'],
+                    int(row['pullreq_id']),
+                    int(row['comment_id'])),
+                axis='columns')
+
+            chunk.to_csv(tmp_csv,
+                         index=False,
+                         header=False if ctr > 0 else True,
+                         mode='w' if ctr == 0 else 'a')
+
+            ctr += chunk.shape[0]
+
+            # Save the counters for resume purpose.
+            temp_stats_df['rows_reprocessed'].iat[0] = ctr
+            temp_stats_df.to_csv(tmp_stats_csv,
+                                 index=False, header=True, mode='w')
+
+            # Progress precision: 0.01%.
+            progress_pct_floor = math.floor(ctr / total_rows * 10000)
+            if progress_pct_floor != progress_pct:
+                progress_pct = progress_pct_floor
+                self.logger.info(
+                    f'Progress: {progress_pct / 100}%, row reprocessed: {ctr}')
+
+        tmp_csv.rename(processed_csv_file)
+        tmp_stats_csv.rename(processed_stats_csv_file)
+        self.logger.info(
+            f'Processing completed, output file: {processed_csv_file}')
 
     def __get_header_fields(self, df: pandas.DataFrame):
         # Remove unused columns.
@@ -163,8 +247,23 @@ class BigQueryCsvFileProcessor:
         df.drop(columns='intra_branch', inplace=True)
 
         # Add new columns.
-        df['comment_from_mongodb'] = ""
-        df['dialogue_act_classification_ml'] = ""
+        df['comment_from_mongodb'] = ''
+        df['dialogue_act_classification_ml'] = ''
+        df['comment_author_association'] = ''
+        df['comment_updated_at'] = ''
+        df['pr_comments'] = ''
+        df['pr_review_comments'] = ''
+        df['pr_commits'] = ''
+        df['pr_additions'] = ''
+        df['pr_deletions'] = ''
+        df['pr_changed_files'] = ''
+        df['pr_merged_by_user_id'] = ''
+        df['pr_commits_prior_to_comment'] = ''
+        df['pr_commit_file_status'] = ''
+        df['pr_commit_file_additions'] = ''
+        df['pr_commit_file_deletions'] = ''
+        df['pr_commit_file_changes'] = ''
+        df['comment_html_url'] = ''
 
         return df
 
@@ -192,3 +291,10 @@ class BigQueryCsvFileProcessor:
 
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
 
+    def __load_pull_request_info(self, project_url: str, pullreq_id: int, comment_id: int):
+        # https://api.github.com/repos/realm/realm-java/pulls/5473/commits
+        # https://api.github.com/repos/realm/realm-java/pulls/5473
+        # https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
+        # https://api.github.com/repos/realm/realm-java/commits/2370da153d75ed948e80fb07cd39d38f26aabeeb
+
+        return pandas.Series(['CONTRIBUTOR'])
