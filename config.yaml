@@ -24,3 +24,7 @@ dialogue_act_classification:
 
   manual_labeling:
     random_sample_line_numbers_csv_file: ../Thesis/Assets/random_sample_line_numbers.csv
+
+github:
+  personal_access_tokens:
+    - 

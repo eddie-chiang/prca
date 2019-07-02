@@ -7,7 +7,7 @@ import nltk
 import pickle
 import sys
 import time
-from commentprocessing import CommentLoader
+from commentprocessing import CommentLoader, GitHubPullRequestHelper
 from dialogueactclassification import Classifier
 from ghtorrent import BigQueryCsvFileProcessor
 from manuallabeling import FileGenerator
@@ -38,6 +38,9 @@ def main():
         cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename())
     error_alert_sound_file = cfg['error_alert_sound_file'].as_filename()
 
+    github_helper = GitHubPullRequestHelper(
+        cfg['github']['personal_access_tokens'].get(list))
+
     comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
                                    cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
         int),
@@ -58,8 +61,9 @@ def main():
                                 cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
     try:
-        file_processor = BigQueryCsvFileProcessor(
-            comment_loader, dac_classifier)
+        file_processor = BigQueryCsvFileProcessor(comment_loader,
+                                                  dac_classifier,
+                                                  github_helper)
         pull_request_comments_csv_file_processed, pull_request_comments_csv_file_processed_stats = file_processor.process(
             pull_request_comments_csv_file)
         file_processor.reprocess(pull_request_comments_csv_file_processed,

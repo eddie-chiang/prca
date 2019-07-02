@@ -2,7 +2,7 @@
 import logging
 import math
 import pandas
-from commentprocessing import CommentLoader, LanguageDetector
+from commentprocessing import CommentLoader, LanguageDetector, GitHubPullRequestHelper
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
 from pathlib import Path
@@ -16,12 +16,14 @@ class BigQueryCsvFileProcessor:
     Args:
         comment_loader (CommentLoader): An instance of comment loader.
         dac_classifier (Classifier): An instance of Dialogue Act Classification classifier.
+        github_helper (GitHubPullRequestHelper): An instance GitHub Pull Request Helper.
     """
 
-    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier):
+    def __init__(self, comment_loader: CommentLoader, dac_classifier: Classifier, github_helper: GitHubPullRequestHelper):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.comment_loader = comment_loader
         self.dac_classifier = dac_classifier
+        self.github_helper = github_helper
 
     def process(self, csv_file: Path):
         """Process the given BigQuery result .csv file.
@@ -225,19 +227,18 @@ class BigQueryCsvFileProcessor:
             # df['comment_html_url'] = ''
             chunk[['comment_author_association', 'comment_updated_at', 'comment_html_url']] = chunk.apply(
                 lambda row:
-                    self.__load_pull_request_info(
-                        row['project_url'],
-                        int(row['pullreq_id']),
+                    self.github_helper.get_pull_request_comment_info(
+                        row['project_url'], 
                         int(row['comment_id']))
                     if pandas.isna(row['comment_author_association'])
-                or pandas.isna(row['comment_updated_at'])
-                or pandas.isna(row['comment_html_url'])
+                        or pandas.isna(row['comment_updated_at'])
+                        or pandas.isna(row['comment_html_url'])
                     else
-                pandas.Series([
-                    row['comment_author_association'],
-                    row['comment_updated_at'],
-                    row['comment_html_url']
-                ]),
+                        pandas.Series([
+                            row['comment_author_association'],
+                            row['comment_updated_at'],
+                            row['comment_html_url']
+                        ]),
                 axis='columns')
 
             # The commit relevant to the comment, e.g. https://api.github.com/repos/realm/realm-java/commits/2370da153d75ed948e80fb07cd39d38f26aabeeb
@@ -333,7 +334,3 @@ class BigQueryCsvFileProcessor:
             is_deleted = False if comment is not None else True
 
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
-
-    def __load_pull_request_info(self, project_url: str, pullreq_id: int, comment_id: int):
-
-        return pandas.Series([project_url, pullreq_id, comment_id])
