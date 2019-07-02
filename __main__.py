@@ -39,7 +39,8 @@ def main():
     error_alert_sound_file = cfg['error_alert_sound_file'].as_filename()
 
     github_helper = GitHubPullRequestHelper(
-        cfg['github']['personal_access_tokens'].get(list))
+        cfg['github']['personal_access_tokens'].get(list),
+        cfg['github']['requests_cache_file'].as_filename())
 
     comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
                                    cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(

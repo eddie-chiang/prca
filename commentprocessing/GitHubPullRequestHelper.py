@@ -1,6 +1,7 @@
 import logging
 import pandas
 import requests
+import requests_cache
 
 
 class GitHubPullRequestHelper:
@@ -8,9 +9,10 @@ class GitHubPullRequestHelper:
 
     Args:
         personal_access_tokens (list): A list of personal access tokens.
+        requests_cache_file (str): File path to the request cache file.
     """
 
-    def __init__(self, personal_access_tokens: list):
+    def __init__(self, personal_access_tokens: list, requests_cache_file: str):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.personal_access_tokens = personal_access_tokens
 
@@ -19,9 +21,14 @@ class GitHubPullRequestHelper:
             if token != None:
                 self.token_idx = i
                 break
-        
-        # Create a session for connection pooling.
-        self.session = requests.session()
+
+        # Set up request cache, to minimize the long lived chance of hitting GitHub API's rate limit, i.e. 5000 requests per hour per token.
+        # And use a session for connection pooling.
+        self.session = requests_cache.CachedSession(
+            cache_name=requests_cache_file,
+            backend='sqlite',
+            expire_after=None,
+            allowable_codes={200})
 
         if self.token_idx != float('NaN'):
             token = personal_access_tokens[self.token_idx]
@@ -31,7 +38,7 @@ class GitHubPullRequestHelper:
         """Returns pull request comment related information.
 
         The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/comments/{comment_id}.
-        
+
         Example: https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
 
         Args:
@@ -48,12 +55,12 @@ class GitHubPullRequestHelper:
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, comment_id)
-    
+
     def get_pull_request_info(self, project_url: str, pullreq_id: int):
         """Returns pull request comment related information.
 
         The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/{pullreq_id}.
-        
+
         Example: https://api.github.com/repos/realm/realm-java/pulls/5473
 
         Args:
@@ -75,8 +82,8 @@ class GitHubPullRequestHelper:
 
         if status_code == 200:
             return pandas.Series([
-                json['comments'], 
-                json['review_comments'], 
+                json['comments'],
+                json['review_comments'],
                 json['commits'],
                 json['additions'],
                 json['deletions'],
@@ -93,11 +100,14 @@ class GitHubPullRequestHelper:
             return resp.status_code, resp.json()
         elif resp.status_code == 403 and resp.json()['message'].startswith('API rate limit exceeded'):
             token = self.session.headers['Authorization']
-            self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
-            self.token_idx, token = self.__next_token_idx(self.personal_access_tokens, self.token_idx)
+            self.logger.warn(
+                f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
+            self.token_idx, token = self.__next_token_idx(
+                self.personal_access_tokens, self.token_idx)
 
             if self.token_idx != float('NaN'):
-                self.session.headers.update({'Authorization': 'token ' + token})
+                self.session.headers.update(
+                    {'Authorization': 'token ' + token})
 
             return resp.status_code, None
         else:
@@ -111,6 +121,3 @@ class GitHubPullRequestHelper:
                 return i, token
 
         return float('NaN'), None
-
-
-

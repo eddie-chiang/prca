@@ -26,5 +26,6 @@ dialogue_act_classification:
     random_sample_line_numbers_csv_file: ../Thesis/Assets/random_sample_line_numbers.csv
 
 github:
+  requests_cache_file: ../Thesis/Assets/github_cache
   personal_access_tokens:
     - 

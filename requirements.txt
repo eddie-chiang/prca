@@ -5,4 +5,5 @@ nltk
 pandas
 playsound
 pymongo
+requests-cache
 sshtunnel
