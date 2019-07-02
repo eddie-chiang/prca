@@ -209,22 +209,38 @@ class BigQueryCsvFileProcessor:
             # Add any missing columns
             chunk = self.__get_header_fields(chunk)
 
-            # Pull Request Info, e.g. https://api.github.com/repos/realm/realm-java/pulls/5473
-            # df['pr_comments'] = ''
-            # df['pr_review_comments'] = ''
-            # df['pr_commits'] = ''
-            # df['pr_additions'] = ''
-            # df['pr_deletions'] = ''
-            # df['pr_changed_files'] = ''
-            # df['pr_merged_by_user_id'] = ''
-
+            chunk[['pr_comments_cnt', 
+                'pr_review_comments_cnt', 
+                'pr_commits_cnt',
+                'pr_additions',
+                'pr_deletions',
+                'pr_changed_files',
+                'pr_merged_by_user_id']] = chunk.apply(
+                lambda row:
+                    self.github_helper.get_pull_request_info(
+                        row['project_url'], 
+                        int(row['pullreq_id']))
+                    if pandas.isna(row['pr_comments_cnt'])
+                        or pandas.isna(row['pr_review_comments_cnt'])
+                        or pandas.isna(row['pr_commits_cnt'])
+                        or pandas.isna(row['pr_additions'])
+                        or pandas.isna(row['pr_deletions'])
+                        or pandas.isna(row['pr_changed_files'])
+                    else
+                        pandas.Series([
+                            row['pr_comments_cnt'],
+                            row['pr_review_comments_cnt'],
+                            row['pr_commits_cnt'],
+                            row['pr_additions'],
+                            row['pr_deletions'],
+                            row['pr_changed_files'],
+                            row['pr_merged_by_user_id']
+                        ]),
+                axis='columns')
+                
             # Commits on the Pull Request, e.g. https://api.github.com/repos/realm/realm-java/pulls/5473/commits
             # df['pr_commits_prior_to_comment'] = ''
 
-            # The comment, e.g. https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
-            # df['comment_author_association'] = ''
-            # df['comment_updated_at'] = ''
-            # df['comment_html_url'] = ''
             chunk[['comment_author_association', 'comment_updated_at', 'comment_html_url']] = chunk.apply(
                 lambda row:
                     self.github_helper.get_pull_request_comment_info(
@@ -265,6 +281,9 @@ class BigQueryCsvFileProcessor:
                 progress_pct = progress_pct_floor
                 self.logger.info(
                     f'Progress: {progress_pct / 100}%, row reprocessed: {ctr}')
+            
+            self.logger.info(f'Random line')
+
 
         # tmp_csv.rename(processed_csv_file)
         # tmp_stats_csv.rename(processed_stats_csv_file)

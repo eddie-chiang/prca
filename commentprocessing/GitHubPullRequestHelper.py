@@ -41,12 +41,56 @@ class GitHubPullRequestHelper:
             Series: [author_association, updated_at, html_url]
         """
         url = project_url + '/pulls/comments/' + str(comment_id)
+        status_code, json = self.__invoke(url)
 
+        if status_code == 200:
+            return pandas.Series([json['author_association'], json['updated_at'], json['html_url']])
+        elif status_code == 403:
+            # Recursive call with the new token.
+            return self.get_pull_request_comment_info(project_url, comment_id)
+    
+    def get_pull_request_info(self, project_url: str, pullreq_id: int):
+        """Returns pull request comment related information.
+
+        The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/{pullreq_id}.
+        
+        Example: https://api.github.com/repos/realm/realm-java/pulls/5473
+
+        Args:
+            project_url (str): GitHub project API url in the format https://api.github.com/repos/{owner}/{repo}.
+            pullreq_id (int): GitHub pull request ID.
+        Returns: 
+            Series: [
+                pr_comments_cnt, 
+                pr_review_comments_cnt, 
+                pr_commits_cnt,
+                pr_additions,
+                pr_deletions,
+                pr_changed_files,
+                pr_merged_by_user_id
+            ]
+        """
+        url = project_url + '/pulls/' + str(pullreq_id)
+        status_code, json = self.__invoke(url)
+
+        if status_code == 200:
+            return pandas.Series([
+                json['comments'], 
+                json['review_comments'], 
+                json['commits'],
+                json['additions'],
+                json['deletions'],
+                json['changed_files'],
+                json['merged_by'].get('id') if json.get('merged_by') != None else ''])
+        elif status_code == 403:
+            # Recursive call with the new token.
+            return self.get_pull_request_info(project_url, pullreq_id)
+
+    def __invoke(self, url: str):
         resp = self.session.get(url)
 
         if resp.status_code == 200:
-            json = resp.json()
-            return pandas.Series([json['author_association'], json['updated_at'], json['html_url']])
+            return resp.status_code, resp.json()
         elif resp.status_code == 403 and resp.json()['message'].startswith('API rate limit exceeded'):
             token = self.session.headers['Authorization']
             self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
@@ -55,8 +99,7 @@ class GitHubPullRequestHelper:
             if self.token_idx != float('NaN'):
                 self.session.headers.update({'Authorization': 'token ' + token})
 
-            # Recursive call with the new token.
-            return self.get_pull_request_comment_info(project_url, comment_id)
+            return resp.status_code, None
         else:
             raise Exception(
                 f'Failed to retrieve pull request info from {url}, HTTP status code {resp.status_code}.')
@@ -68,3 +111,6 @@ class GitHubPullRequestHelper:
                 return i, token
 
         return float('NaN'), None
+
+
+
