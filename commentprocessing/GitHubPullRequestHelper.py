@@ -30,6 +30,10 @@ class GitHubPullRequestHelper:
     def get_pull_request_comment_info(self, project_url: str, comment_id: int):
         """Returns pull request comment related information.
 
+        The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/comments/{comment_id}.
+        
+        Example: https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
+
         Args:
             project_url (str): GitHub project API url in the format https://api.github.com/repos/{owner}/{repo}.
             comment_id (int): GitHub comment ID.
