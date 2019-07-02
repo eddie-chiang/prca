@@ -19,6 +19,13 @@ class GitHubPullRequestHelper:
             if token != None:
                 self.token_idx = i
                 break
+        
+        # Create a session for connection pooling.
+        self.session = requests.session()
+
+        if self.token_idx != float('NaN'):
+            token = personal_access_tokens[self.token_idx]
+            self.session.headers.update({'Authorization': 'token ' + token})
 
     def get_pull_request_comment_info(self, project_url: str, comment_id: int):
         """Returns pull request comment related information.
@@ -31,20 +38,19 @@ class GitHubPullRequestHelper:
         """
         url = project_url + '/pulls/comments/' + str(comment_id)
 
-        headers = None
-        token = None
-        if self.token_idx != float('NaN'):
-            token = self.personal_access_tokens[self.token_idx]
-            headers = {'Authorization': 'token ' + token}
-
-        resp = requests.get(url, headers=headers)
+        resp = self.session.get(url)
 
         if resp.status_code == 200:
             json = resp.json()
             return pandas.Series([json['author_association'], json['updated_at'], json['html_url']])
         elif resp.status_code == 403 and resp.json()['message'].startswith('API rate limit exceeded'):
-            self.logger.warn(f'API rate limit exceeded, token: {token}, index: {self.token_idx}, retrying with the next token...')
-            self.token_idx = self.__next_token_idx(self.personal_access_tokens, self.token_idx)
+            token = self.session.headers['Authorization']
+            self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
+            self.token_idx, token = self.__next_token_idx(self.personal_access_tokens, self.token_idx)
+
+            if self.token_idx != float('NaN'):
+                self.session.headers.update({'Authorization': 'token ' + token})
+
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, comment_id)
         else:
@@ -55,6 +61,6 @@ class GitHubPullRequestHelper:
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
         for i, token in enumerate(tokens[index:], start=index):
             if token != None:
-                return i
+                return i, token
 
-        return float('NaN')
+        return float('NaN'), None
