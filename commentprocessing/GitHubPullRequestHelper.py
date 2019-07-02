@@ -35,24 +35,55 @@ class GitHubPullRequestHelper:
             self.session.headers.update({'Authorization': 'token ' + token})
 
     def get_pull_request_comment_info(self, project_url: str, comment_id: int):
-        """Returns pull request comment related information.
+        """Returns pull request comment related information, and the commit that the comment pertains.
 
-        The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/comments/{comment_id}.
+        The information is retrieved from: https://api.github.com/repos/{owner}/{repo}/pulls/comments/{comment_id},
+        and https://api.github.com/repos/{owner}/{repo}/commits/{original_commit_id}
 
         Example: https://api.github.com/repos/realm/realm-java/pulls/comments/147137750
+        and: https://api.github.com/repos/realm/realm-java/commits/b12402e3060f08f392c341686cc816d99afe15e8
 
         Args:
             project_url (str): GitHub project API url in the format https://api.github.com/repos/{owner}/{repo}.
             comment_id (int): GitHub comment ID.
         Returns: 
-            Series: [author_association, updated_at, html_url]
+            Series: [
+                author_association, 
+                updated_at, 
+                html_url,
+                commit_file_status,
+                commit_file_additions,
+                commit_file_deletions,
+                commit_file_changes
+            ]
         """
         url = project_url + '/pulls/comments/' + str(comment_id)
-        status_code, json = self.__invoke(url)
+        status_code, comment = self.__invoke(url)
 
         if status_code == 200:
-            return pandas.Series([json['author_association'], json['updated_at'], json['html_url']])
-        elif status_code == 403:
+            # Get commit that the coment pertains
+            url = project_url + '/commits/' + comment['original_commit_id']
+            status_code, commit = self.__invoke(url)
+            if status_code == 200:
+                commit_files = [f for f in commit['files']
+                               if f['filename'] == comment['path']]
+                
+                if len(commit_files) == 0:
+                    commit_file = 'nope'
+                    # TODO look up earlier commits https://api.github.com/repos/OpenClinica/OpenClinica/pulls/738/commits
+                else:
+                    commit_file = commit_files[0]
+                return pandas.Series([
+                    comment['author_association'],
+                    comment['updated_at'],
+                    comment['html_url'],
+                    commit_file['status'],
+                    commit_file['additions'],
+                    commit_file['deletions'],
+                    commit_file['changes']
+                ])
+
+        if status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, comment_id)
 
@@ -88,7 +119,8 @@ class GitHubPullRequestHelper:
                 json['additions'],
                 json['deletions'],
                 json['changed_files'],
-                json['merged_by'].get('id') if json.get('merged_by') != None else ''])
+                json['merged_by'].get('id') if json.get('merged_by') != None else '']
+            )
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_info(project_url, pullreq_id)

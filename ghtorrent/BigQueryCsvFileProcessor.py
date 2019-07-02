@@ -241,7 +241,13 @@ class BigQueryCsvFileProcessor:
             # Commits on the Pull Request, e.g. https://api.github.com/repos/realm/realm-java/pulls/5473/commits
             # df['pr_commits_prior_to_comment'] = ''
 
-            chunk[['comment_author_association', 'comment_updated_at', 'comment_html_url']] = chunk.apply(
+            chunk[['comment_author_association', 
+                'comment_updated_at', 
+                'comment_html_url',
+                'commit_file_status',
+                'commit_file_additions',
+                'commit_file_deletions',
+                'commit_file_changes']] = chunk.apply(
                 lambda row:
                     self.github_helper.get_pull_request_comment_info(
                         row['project_url'], 
@@ -249,19 +255,21 @@ class BigQueryCsvFileProcessor:
                     if pandas.isna(row['comment_author_association'])
                         or pandas.isna(row['comment_updated_at'])
                         or pandas.isna(row['comment_html_url'])
+                        or pandas.isna(row['commit_file_status'])
+                        or pandas.isna(row['commit_file_additions'])
+                        or pandas.isna(row['commit_file_deletions'])
+                        or pandas.isna(row['commit_file_changes'])
                     else
                         pandas.Series([
                             row['comment_author_association'],
                             row['comment_updated_at'],
-                            row['comment_html_url']
+                            row['comment_html_url'],
+                            row['commit_file_status'],
+                            row['commit_file_additions'],
+                            row['commit_file_deletions'],
+                            row['commit_file_changes']
                         ]),
                 axis='columns')
-
-            # The commit relevant to the comment, e.g. https://api.github.com/repos/realm/realm-java/commits/2370da153d75ed948e80fb07cd39d38f26aabeeb
-            # df['pr_commit_file_status'] = ''
-            # df['pr_commit_file_additions'] = ''
-            # df['pr_commit_file_deletions'] = ''
-            # df['pr_commit_file_changes'] = ''
 
             chunk.to_csv(tmp_csv,
                          index=False,
