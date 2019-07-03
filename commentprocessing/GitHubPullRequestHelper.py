@@ -71,6 +71,12 @@ class GitHubPullRequestHelper:
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_info(project_url, pull_number)
+        elif status_code == 404:
+            self.logger.warn(f'Pull request not found: {url}.')
+            return pandas.Series(['NA'] * 7)
+
+        raise RuntimeError(
+            'Unknown error occurred.', project_url, pull_number)
 
     def get_pull_request_comment_info(self, project_url: str, pull_number: int, comment_id: int):
         """Returns pull request comment related information, and the commit that the comment pertains.
@@ -99,13 +105,7 @@ class GitHubPullRequestHelper:
         status_code, comment = self.__invoke(url)
 
         if status_code == 200:
-            commit_file_series = pandas.Series([
-                'NA',
-                'NA',
-                'NA',
-                'NA',
-                'NA'
-            ])
+            commit_file_series = pandas.Series(['NA' * 5])
 
             try:
                 commit_file_series = self.get_commit_file_for_comment(
@@ -127,6 +127,9 @@ class GitHubPullRequestHelper:
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
+
+        raise RuntimeError(
+            'Unknown error occurred.', project_url, pull_number, comment_id)
 
     def get_commit_file_for_comment(self, project_url: str, pull_number: int, filename: str, original_commit_id: str):
         """Returns commit file for that a pull request comment is pertaining..
@@ -203,6 +206,9 @@ class GitHubPullRequestHelper:
             # Recursive call with the new token.
             return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
 
+        raise RuntimeError(
+            'Unknown error occurred.', project_url, pull_number, filename, original_commit_id)
+
     def __invoke(self, url: str):
         resp = self.session.get(url)
 
@@ -219,6 +225,8 @@ class GitHubPullRequestHelper:
                 self.session.headers.update(
                     {'Authorization': 'token ' + token})
 
+            return resp.status_code, None
+        elif resp.status_code == 404:
             return resp.status_code, None
         else:
             raise Exception(
