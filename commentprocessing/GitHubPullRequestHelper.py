@@ -115,14 +115,15 @@ class GitHubPullRequestHelper:
                     comment['original_commit_id']
                 )
             except ValueError as e:
-                self.logger.warn(f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}.')
+                self.logger.warn(
+                    f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}.')
 
             result = pandas.Series([
                 comment['author_association'],
                 comment['updated_at'],
                 comment['html_url']
             ])
-            return result.append(commit_file_series)
+            return result.append(commit_file_series, ignore_index=True)
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
@@ -196,7 +197,8 @@ class GitHubPullRequestHelper:
                         # Recursive call with the new token.
                         return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
 
-            raise ValueError('Cannot find the pertaining commit or file', url, filename, original_commit_id)
+            raise ValueError(
+                'Cannot find the pertaining commit or file', url, filename, original_commit_id)
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
