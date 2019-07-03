@@ -66,7 +66,7 @@ class GitHubPullRequestHelper:
                 json['additions'],
                 json['deletions'],
                 json['changed_files'],
-                json['merged_by'].get('id') if json.get('merged_by') != None else 'N/A']
+                json['merged_by'].get('id') if json.get('merged_by') != None else 'Not Available']
             )
         elif status_code == 403:
             # Recursive call with the new token.
@@ -104,7 +104,7 @@ class GitHubPullRequestHelper:
         status_code, comment = self.__invoke(url)
 
         if status_code == 200:
-            commit_file_series = pandas.Series(['N/A'] * 5)
+            commit_file_series = pandas.Series(['Not Available'] * 5)
 
             try:
                 commit_file_series = self.get_commit_file_for_comment(
