@@ -72,7 +72,6 @@ class GitHubPullRequestHelper:
             # Recursive call with the new token.
             return self.get_pull_request_info(project_url, pull_number)
         elif status_code == 404:
-            self.logger.warn(f'Pull request not found: {url}.')
             return pandas.Series(['Not Found'] * 7)
 
         raise RuntimeError(
@@ -115,8 +114,10 @@ class GitHubPullRequestHelper:
                     comment['original_commit_id']
                 )
             except ValueError as e:
-                self.logger.warn(
-                    f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}.')
+                if e.args[4] == 250:
+                    # GitHub API can only list a maximum of 250 commits: https://developer.github.com/v3/pulls/#list-commits-on-a-pull-request.
+                    self.logger.warn(
+                        f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}, commit count: {e.args[4]}')
 
             result = pandas.Series([
                 comment['author_association'],
@@ -144,7 +145,7 @@ class GitHubPullRequestHelper:
         and: https://api.github.com/repos/OpenClinica/OpenClinica/commits/a2c4d09c70695aaab18695a45414b8d827a2d86f
 
         Limitation: GitHub API can only list a maximum of 250 commits: https://developer.github.com/v3/pulls/#list-commits-on-a-pull-request.
-        So if the comment is not for a commit from the first 250 commits, a series populated with NA will be returned.
+        So if the comment is not for a commit from the first 250 commits, an ValueError will be raised.
 
         In addition, sometimes commits can disappear after a force-push.
 
@@ -168,8 +169,9 @@ class GitHubPullRequestHelper:
 
         if status_code == 200:
             # Find the commit that the comment pertains.
+            commits_cnt = len(commits)
             original_commit_idx = next(iter(
-                [i for i in range(len(commits))
+                [i for i in range(commits_cnt)
                  if commits[i]['sha'] == original_commit_id]
             ), None)
 
@@ -204,7 +206,7 @@ class GitHubPullRequestHelper:
                         return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
 
             raise ValueError(
-                'Cannot find the pertaining commit or file', url, filename, original_commit_id)
+                'Cannot find the pertaining commit or file', url, filename, original_commit_id, commits_cnt)
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
