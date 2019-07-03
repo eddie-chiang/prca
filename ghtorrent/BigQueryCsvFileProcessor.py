@@ -156,24 +156,18 @@ class BigQueryCsvFileProcessor:
 
         return final_csv, final_stats_csv
 
-    def reprocess(self, processed_csv_file: Path, processed_stats_csv_file: Path):
+    def reprocess(self, processed_csv_file: Path):
         """Reprocess the given processed BigQuery result .csv file, to add any missing information.
 
         Args:
             processed_csv_file (Path): File path that points to the .csv file that was previously processed.
-            processed_stats_csv_file (Path): File path that points to the .csv file with the previously processed statistics.
 
         Returns:
-            tuple: (
-                Path: The file path of the processed file.
-                Path: The file containing the processing statistics.
-            )
+            Path: The file path of the processed file.
         """
         tmp_csv = Path(processed_csv_file.absolute(
         ).as_posix().replace('.csv', '_reprocessing.csv'))
-        tmp_stats_csv = Path(processed_stats_csv_file.absolute().as_posix().replace(
-            '.csv', '_reprocessing_stats.csv'))
-
+        
         self.logger.info(f'Start reprocessing {processed_csv_file}...')
 
         data_frame = pandas.read_csv(processed_csv_file)
@@ -184,23 +178,10 @@ class BigQueryCsvFileProcessor:
         progress_pct = 0
 
         if tmp_csv.exists():
-            tmp_total_rows = pandas.read_csv(tmp_csv).shape[0]
-            tmp_stats_df = pandas.read_csv(tmp_stats_csv)
-            ctr = tmp_stats_df['rows_reprocessed'].iat[0]
+            ctr = pandas.read_csv(tmp_csv).shape[0]
 
             self.logger.warn(
-                f'The file {tmp_csv.name} already exists, no. of rows in the file: {tmp_total_rows}, no. of rows reprocessed: {ctr}. Resuming...')
-        else:
-            stats_df = pandas.read_csv(processed_stats_csv_file)
-            stats = {
-                'rows_processed': stats_df['rows_processed'].iat[0],
-                'comments_truncated': stats_df['comments_truncated'].iat[0],
-                'deleted': stats_df['deleted'].iat[0],
-                'non_english': stats_df['non_english'].iat[0],
-                'total_skipped': stats_df['total_skipped'].iat[0],
-                'rows_reprocessed': [0]
-            }
-            tmp_stats_df = pandas.DataFrame(data=stats)
+                f'The file {tmp_csv.name} already exists, no. of rows in the file: {ctr}. Resuming...')
 
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(processed_csv_file, chunksize=100, converters={
@@ -257,11 +238,6 @@ class BigQueryCsvFileProcessor:
 
             ctr += chunk.shape[0]
 
-            # Save the counters for resume purpose.
-            tmp_stats_df['rows_reprocessed'].iat[0] = ctr
-            tmp_stats_df.to_csv(tmp_stats_csv,
-                                index=False, header=True, mode='w')
-
             # Progress precision: 0.01%.
             progress_pct_floor = math.floor(ctr / total_rows * 10000)
             if progress_pct_floor != progress_pct:
@@ -270,9 +246,10 @@ class BigQueryCsvFileProcessor:
                     f'Progress: {progress_pct / 100}%, row reprocessed: {ctr}')
 
         tmp_csv.rename(processed_csv_file)
-        tmp_stats_csv.rename(processed_stats_csv_file)
         self.logger.info(
             f'Processing completed, output file: {processed_csv_file}')
+        
+        return processed_csv_file
 
     def __get_header_fields(self, df: pandas.DataFrame):
         columns = ['project_id',

@@ -65,11 +65,10 @@ def main():
         file_processor = BigQueryCsvFileProcessor(comment_loader,
                                                   dac_classifier,
                                                   github_helper)
-        pull_request_comments_csv_file_processed, pull_request_comments_csv_file_processed_stats = file_processor.process(
+        pull_request_comments_csv_file_processed, _ = file_processor.process(
             pull_request_comments_csv_file)
-        file_processor.reprocess(pull_request_comments_csv_file_processed,
-                                 pull_request_comments_csv_file_processed_stats)
-    except Exception as e:
+        _ = file_processor.reprocess(pull_request_comments_csv_file_processed)
+    except Exception:
         logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.
         while True:
