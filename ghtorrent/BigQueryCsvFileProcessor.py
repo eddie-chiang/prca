@@ -120,7 +120,7 @@ class BigQueryCsvFileProcessor:
                    'pr_merged_by_user_id']] = chunk.apply(
                 lambda row: self.__get_pull_request_info(row)
                 if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
-                else pandas.Series(['NA'] * 7),
+                else pandas.Series(['N/A'] * 7),
                 axis='columns')
 
             chunk[['comment_author_association',
@@ -132,8 +132,8 @@ class BigQueryCsvFileProcessor:
                    'commit_file_deletions',
                    'commit_file_changes']] = chunk.apply(
                        lambda row: self.__get_comment_info(row)
-                       if row['pr_commits_cnt'] not in ['NA', 'Not Found']
-                       else pandas.Series(['NA'] * 8),
+                       if row['pr_commits_cnt'] not in ['N/A', 'Not Found']
+                       else pandas.Series(['N/A'] * 8),
                 axis='columns')
 
             truncated_ctr += len(
@@ -148,7 +148,7 @@ class BigQueryCsvFileProcessor:
                 ].index)
             skip_ctr += len(
                 chunk[
-                    (chunk['comment_html_url'] == 'NA')
+                    (chunk['comment_html_url'] == 'N/A')
                     | (chunk['comment_html_url'] == 'Not Found')
                 ].index)
 
@@ -159,7 +159,7 @@ class BigQueryCsvFileProcessor:
             # Filter comments that no longer exists.
             chunk = chunk[
                 (chunk['body'].notnull())
-                & (chunk['comment_html_url'] != 'NA')
+                & (chunk['comment_html_url'] != 'N/A')
                 & (chunk['comment_html_url'] != 'Not Found')]
 
             if chunk.shape[0] > 0:
@@ -251,8 +251,8 @@ class BigQueryCsvFileProcessor:
                    'commit_file_deletions',
                    'commit_file_changes']] = chunk.apply(
                        lambda row: self.__get_comment_info(row)
-                       if row['pr_commits_cnt'] != 'NA'
-                       else pandas.Series(['NA'] * 8),
+                       if row['pr_commits_cnt'] != 'N/A'
+                       else pandas.Series(['N/A'] * 8),
                 axis='columns')
 
             chunk.to_csv(tmp_csv,
