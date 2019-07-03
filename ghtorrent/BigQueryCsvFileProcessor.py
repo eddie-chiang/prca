@@ -70,7 +70,7 @@ class BigQueryCsvFileProcessor:
             del_from_mongo_ctr = int(
                 tmp_stats_df['deleted_from_mongodb'].iat[0])
             del_from_github_ctr = int(
-                tmp_stats_df['deleted_from_github'].iat[0])            
+                tmp_stats_df['deleted_from_github'].iat[0])
             skip_ctr = int(tmp_stats_df['total_skipped'].iat[0])
 
             self.logger.warn(
@@ -82,7 +82,7 @@ class BigQueryCsvFileProcessor:
                 'comments_truncated': [0],
                 'non_english': [0],
                 'deleted_from_mongodb': [0],
-                'deleted_from_github': [0],                
+                'deleted_from_github': [0],
                 'total_skipped': [0],
                 'dialogue_act_classifier_accurracy': [self.dac_classifier.get_accuracy()],
                 'dialogue_act_class_label': list(precisions.keys()),
@@ -180,7 +180,7 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df['comments_truncated'].iat[0] = truncated_ctr
             tmp_stats_df['non_english'].iat[0] = non_eng_ctr
             tmp_stats_df['deleted_from_mongodb'].iat[0] = del_from_mongo_ctr
-            tmp_stats_df['deleted_from_github'].iat[0] = del_from_github_ctr            
+            tmp_stats_df['deleted_from_github'].iat[0] = del_from_github_ctr
             tmp_stats_df['total_skipped'].iat[0] = skip_ctr
             tmp_stats_df.to_csv(tmp_stats_csv,
                                 index=False, header=True, mode='w')
@@ -239,27 +239,7 @@ class BigQueryCsvFileProcessor:
                    'pr_deletions',
                    'pr_changed_files',
                    'pr_merged_by_user_id']] = chunk.apply(
-                lambda row:
-                self.github_helper.get_pull_request_info(
-                    row['project_url'],
-                    int(row['pullreq_id']))
-                if pandas.isna(row['pr_comments_cnt'])
-                or pandas.isna(row['pr_review_comments_cnt'])
-                or pandas.isna(row['pr_commits_cnt'])
-                or pandas.isna(row['pr_additions'])
-                or pandas.isna(row['pr_deletions'])
-                or pandas.isna(row['pr_changed_files'])
-                or pandas.isna(row['pr_merged_by_user_id'])
-                else
-                pandas.Series([
-                    row['pr_comments_cnt'],
-                    row['pr_review_comments_cnt'],
-                    row['pr_commits_cnt'],
-                    row['pr_additions'],
-                    row['pr_deletions'],
-                    row['pr_changed_files'],
-                    row['pr_merged_by_user_id']
-                ]),
+                lambda row: self.__get_pull_request_info(row),
                 axis='columns')
 
             chunk[['comment_author_association',
