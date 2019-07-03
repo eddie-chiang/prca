@@ -217,17 +217,17 @@ class BigQueryCsvFileProcessor:
                    'pr_changed_files',
                    'pr_merged_by_user_id']] = chunk.apply(
                 lambda row:
-                    self.github_helper.get_pull_request_info(
-                        row['project_url'],
-                        int(row['pullreq_id']))
-                    if pandas.isna(row['pr_comments_cnt'])
+                self.github_helper.get_pull_request_info(
+                    row['project_url'],
+                    int(row['pullreq_id']))
+                if pandas.isna(row['pr_comments_cnt'])
                 or pandas.isna(row['pr_review_comments_cnt'])
                 or pandas.isna(row['pr_commits_cnt'])
                 or pandas.isna(row['pr_additions'])
                 or pandas.isna(row['pr_deletions'])
                 or pandas.isna(row['pr_changed_files'])
                 or pandas.isna(row['pr_merged_by_user_id'])
-                    else
+                else
                 pandas.Series([
                     row['pr_comments_cnt'],
                     row['pr_review_comments_cnt'],
@@ -247,30 +247,7 @@ class BigQueryCsvFileProcessor:
                    'commit_file_additions',
                    'commit_file_deletions',
                    'commit_file_changes']] = chunk.apply(
-                lambda row:
-                    self.github_helper.get_pull_request_comment_info(
-                        row['project_url'],
-                        int(row['pullreq_id']),
-                        int(row['comment_id']))
-                    if pandas.isna(row['comment_author_association'])
-                or pandas.isna(row['comment_updated_at'])
-                or pandas.isna(row['comment_html_url'])
-                or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
-                or pandas.isna(row['commit_file_status'])
-                or pandas.isna(row['commit_file_additions'])
-                or pandas.isna(row['commit_file_deletions'])
-                or pandas.isna(row['commit_file_changes'])
-                    else
-                pandas.Series([
-                    row['comment_author_association'],
-                    row['comment_updated_at'],
-                    row['comment_html_url'],
-                    row['pr_commits_cnt_prior_to_comment'],
-                    row['commit_file_status'],
-                    row['commit_file_additions'],
-                    row['commit_file_deletions'],
-                    row['commit_file_changes']
-                ]),
+                       lambda row: self.__get_comment_info(row),
                 axis='columns')
 
             chunk.to_csv(tmp_csv,
@@ -361,3 +338,33 @@ class BigQueryCsvFileProcessor:
             is_deleted = False if comment is not None else True
 
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
+
+    def __get_comment_info(self, row):
+        if row['pr_commits_cnt'] == 'NA':
+            # Pull request no longer exists, skip getting comment info.
+            return pandas.Series(['NA'] * 8)
+        elif (pandas.isna(row['comment_author_association'])
+              or pandas.isna(row['comment_updated_at'])
+              or pandas.isna(row['comment_html_url'])
+              or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
+              or pandas.isna(row['commit_file_status'])
+              or pandas.isna(row['commit_file_additions'])
+              or pandas.isna(row['commit_file_deletions'])
+              or pandas.isna(row['commit_file_changes'])):
+            # Retrieve from GitHub any missing info.
+            return self.github_helper.get_pull_request_comment_info(
+                row['project_url'],
+                int(row['pullreq_id']),
+                int(row['comment_id']))
+        else:
+            # Return the original info.
+            return pandas.Series([
+                row['comment_author_association'],
+                row['comment_updated_at'],
+                row['comment_html_url'],
+                row['pr_commits_cnt_prior_to_comment'],
+                row['commit_file_status'],
+                row['commit_file_additions'],
+                row['commit_file_deletions'],
+                row['commit_file_changes']
+            ])
