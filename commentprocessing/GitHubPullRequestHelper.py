@@ -105,7 +105,7 @@ class GitHubPullRequestHelper:
         status_code, comment = self.__invoke(url)
 
         if status_code == 200:
-            commit_file_series = pandas.Series(['NA' * 5])
+            commit_file_series = pandas.Series(['NA'] * 5)
 
             try:
                 commit_file_series = self.get_commit_file_for_comment(
