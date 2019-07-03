@@ -235,7 +235,7 @@ class GitHubPullRequestHelper:
             return resp.status_code, None
         else:
             raise Exception(
-                f'Failed to retrieve pull request info from {url}, HTTP status code {resp.status_code}.')
+                f'Failed to load from {url}, HTTP code: {resp.status_code}, response: {resp.json()}')
 
     def __next_token_idx(self, tokens: list, ptr: int):
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
