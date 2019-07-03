@@ -58,22 +58,20 @@ class BigQueryCsvFileProcessor:
         total_rows = data_frame.shape[0]
         self.logger.info(f'No. of rows in {csv_file}: {total_rows}')
 
-        ctr = 0
-        truncated_ctr = 0
-        deleted_ctr = 0
-        non_eng_ctr = 0
-        skip_ctr = 0
-        progress_pct = 0
+        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = progress_pct = 0
         tmp_stats_df = None
 
         if tmp_csv.exists():
             tmp_total_rows = pandas.read_csv(tmp_csv).shape[0]
             tmp_stats_df = pandas.read_csv(tmp_stats_csv)
-            ctr = tmp_stats_df['rows_processed'].iat[0]
-            truncated_ctr = tmp_stats_df['comments_truncated'].iat[0]
-            deleted_ctr = tmp_stats_df['deleted'].iat[0]
-            non_eng_ctr = tmp_stats_df['non_english'].iat[0]
-            skip_ctr = tmp_stats_df['skipped'].iat[0]
+            ctr = int(tmp_stats_df['rows_processed'].iat[0])
+            truncated_ctr = int(tmp_stats_df['comments_truncated'].iat[0])
+            non_eng_ctr = int(tmp_stats_df['non_english'].iat[0])
+            del_from_mongo_ctr = int(
+                tmp_stats_df['deleted_from_mongodb'].iat[0])
+            del_from_github_ctr = int(
+                tmp_stats_df['deleted_from_github'].iat[0])            
+            skip_ctr = int(tmp_stats_df['total_skipped'].iat[0])
 
             self.logger.warn(
                 f'The file {tmp_csv.name} already exists, no. of rows in the file: {tmp_total_rows}, no. of rows processed: {ctr}. Resuming...')
@@ -82,8 +80,9 @@ class BigQueryCsvFileProcessor:
             stats = {
                 'rows_processed': [0],
                 'comments_truncated': [0],
-                'deleted': [0],
                 'non_english': [0],
+                'deleted_from_mongodb': [0],
+                'deleted_from_github': [0],                
                 'total_skipped': [0],
                 'dialogue_act_classifier_accurracy': [self.dac_classifier.get_accuracy()],
                 'dialogue_act_class_label': list(precisions.keys()),
@@ -104,7 +103,7 @@ class BigQueryCsvFileProcessor:
             chunk = self.__get_header_fields(chunk)
 
             # Process comments.
-            chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted']] = chunk.apply(
+            chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.apply(
                 lambda row: self.__load_comment(
                     row['body'],
                     row['project_url'],
@@ -112,20 +111,62 @@ class BigQueryCsvFileProcessor:
                     int(row['comment_id'])),
                 axis='columns')
 
-            truncated_ctr += len(chunk[chunk['comment_from_mongodb']
-                                       == True].index)
-            non_eng_ctr += len(chunk[chunk['is_eng'] == False].index)
-            deleted_ctr += len(chunk[chunk['is_deleted'] == True].index)
-            skip_ctr += len(chunk[chunk['body'].isnull()].index)
+            chunk[['pr_comments_cnt',
+                   'pr_review_comments_cnt',
+                   'pr_commits_cnt',
+                   'pr_additions',
+                   'pr_deletions',
+                   'pr_changed_files',
+                   'pr_merged_by_user_id']] = chunk.apply(
+                lambda row: self.__get_pull_request_info(row)
+                if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
+                else pandas.Series(['NA'] * 7),
+                axis='columns')
 
-            # Remove unused columns, and filter rows.
+            chunk[['comment_author_association',
+                   'comment_updated_at',
+                   'comment_html_url',
+                   'pr_commits_cnt_prior_to_comment',
+                   'commit_file_status',
+                   'commit_file_additions',
+                   'commit_file_deletions',
+                   'commit_file_changes']] = chunk.apply(
+                       lambda row: self.__get_comment_info(row)
+                       if row['pr_commits_cnt'] not in ['NA', 'Not Found']
+                       else pandas.Series(['NA'] * 8),
+                axis='columns')
+
+            truncated_ctr += len(
+                chunk[chunk['comment_from_mongodb'] == True].index)
+            non_eng_ctr += len(chunk[chunk['is_eng'] == False].index)
+            del_from_mongo_ctr += len(
+                chunk[chunk['is_deleted_from_mongodb'] == True].index)
+            del_from_github_ctr += len(
+                chunk[
+                    (chunk['comment_html_url'] == 'Not Found')
+                    | (chunk['pr_commits_cnt'] == 'Not Found')
+                ].index)
+            skip_ctr += len(
+                chunk[
+                    (chunk['comment_html_url'] == 'NA')
+                    | (chunk['comment_html_url'] == 'Not Found')
+                ].index)
+
+            # Remove unused columns.
             chunk.drop(columns='is_eng', inplace=True)
-            chunk.drop(columns='is_deleted', inplace=True)
-            chunk = chunk[chunk['body'].notnull()]
+            chunk.drop(columns='is_deleted_from_mongodb', inplace=True)
+
+            # Filter comments that no longer exists.
+            chunk = chunk[
+                (chunk['body'].notnull())
+                & (chunk['comment_html_url'] != 'NA')
+                & (chunk['comment_html_url'] != 'Not Found')]
 
             if chunk.shape[0] > 0:
                 chunk['dialogue_act_classification_ml'] = chunk.apply(
-                    lambda row: self.dac_classifier.classify(row['body']), axis=1)
+                    lambda row:
+                        self.dac_classifier.classify(row['body']),
+                    axis=1)
 
                 chunk.to_csv(tmp_csv,
                              index=False,
@@ -137,8 +178,9 @@ class BigQueryCsvFileProcessor:
             # Save the counters for resume purpose.
             tmp_stats_df['rows_processed'].iat[0] = ctr
             tmp_stats_df['comments_truncated'].iat[0] = truncated_ctr
-            tmp_stats_df['deleted'].iat[0] = deleted_ctr
             tmp_stats_df['non_english'].iat[0] = non_eng_ctr
+            tmp_stats_df['deleted_from_mongodb'].iat[0] = del_from_mongo_ctr
+            tmp_stats_df['deleted_from_github'].iat[0] = del_from_github_ctr            
             tmp_stats_df['total_skipped'].iat[0] = skip_ctr
             tmp_stats_df.to_csv(tmp_stats_csv,
                                 index=False, header=True, mode='w')
@@ -148,7 +190,7 @@ class BigQueryCsvFileProcessor:
             if progress_pct_floor != progress_pct:
                 progress_pct = progress_pct_floor
                 self.logger.info(
-                    f'Progress: {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, deleted: {deleted_ctr}, non English: {non_eng_ctr}, total skipped: {skip_ctr}')
+                    f'At {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, non English: {non_eng_ctr}, deleted from MongoDB/GitHub: {del_from_mongo_ctr}/{del_from_github_ctr}, total skipped: {skip_ctr}')
 
         tmp_csv.rename(final_csv)
         tmp_stats_csv.rename(final_stats_csv)
@@ -167,7 +209,7 @@ class BigQueryCsvFileProcessor:
         """
         tmp_csv = Path(processed_csv_file.absolute(
         ).as_posix().replace('.csv', '_reprocessing.csv'))
-        
+
         self.logger.info(f'Start reprocessing {processed_csv_file}...')
 
         data_frame = pandas.read_csv(processed_csv_file)
@@ -228,7 +270,9 @@ class BigQueryCsvFileProcessor:
                    'commit_file_additions',
                    'commit_file_deletions',
                    'commit_file_changes']] = chunk.apply(
-                       lambda row: self.__get_comment_info(row),
+                       lambda row: self.__get_comment_info(row)
+                       if row['pr_commits_cnt'] != 'NA'
+                       else pandas.Series(['NA'] * 8),
                 axis='columns')
 
             chunk.to_csv(tmp_csv,
@@ -248,7 +292,7 @@ class BigQueryCsvFileProcessor:
         tmp_csv.rename(processed_csv_file)
         self.logger.info(
             f'Processing completed, output file: {processed_csv_file}')
-        
+
         return processed_csv_file
 
     def __get_header_fields(self, df: pandas.DataFrame):
@@ -317,17 +361,14 @@ class BigQueryCsvFileProcessor:
         return pandas.Series([comment, is_eng, is_truncated, is_deleted])
 
     def __get_comment_info(self, row):
-        if row['pr_commits_cnt'] == 'NA':
-            # Pull request no longer exists, skip getting comment info.
-            return pandas.Series(['NA'] * 8)
-        elif (pandas.isna(row['comment_author_association'])
-              or pandas.isna(row['comment_updated_at'])
-              or pandas.isna(row['comment_html_url'])
-              or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
-              or pandas.isna(row['commit_file_status'])
-              or pandas.isna(row['commit_file_additions'])
-              or pandas.isna(row['commit_file_deletions'])
-              or pandas.isna(row['commit_file_changes'])):
+        if (pandas.isna(row['comment_author_association'])
+            or pandas.isna(row['comment_updated_at'])
+            or pandas.isna(row['comment_html_url'])
+            or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
+            or pandas.isna(row['commit_file_status'])
+            or pandas.isna(row['commit_file_additions'])
+            or pandas.isna(row['commit_file_deletions'])
+                or pandas.isna(row['commit_file_changes'])):
             # Retrieve from GitHub any missing info.
             return self.github_helper.get_pull_request_comment_info(
                 row['project_url'],
@@ -344,4 +385,28 @@ class BigQueryCsvFileProcessor:
                 row['commit_file_additions'],
                 row['commit_file_deletions'],
                 row['commit_file_changes']
+            ])
+
+    def __get_pull_request_info(self, row):
+        if (pandas.isna(row['pr_comments_cnt'])
+            or pandas.isna(row['pr_review_comments_cnt'])
+            or pandas.isna(row['pr_commits_cnt'])
+            or pandas.isna(row['pr_additions'])
+            or pandas.isna(row['pr_deletions'])
+            or pandas.isna(row['pr_changed_files'])
+                or pandas.isna(row['pr_merged_by_user_id'])):
+            # Retrieve from GitHub any missing info.
+            return self.github_helper.get_pull_request_info(
+                row['project_url'],
+                int(row['pullreq_id']))
+        else:
+            # Return the original info.
+            return pandas.Series([
+                row['pr_comments_cnt'],
+                row['pr_review_comments_cnt'],
+                row['pr_commits_cnt'],
+                row['pr_additions'],
+                row['pr_deletions'],
+                row['pr_changed_files'],
+                row['pr_merged_by_user_id']
             ])
