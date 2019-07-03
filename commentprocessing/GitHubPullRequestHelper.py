@@ -73,7 +73,7 @@ class GitHubPullRequestHelper:
             return self.get_pull_request_info(project_url, pull_number)
         elif status_code == 404:
             self.logger.warn(f'Pull request not found: {url}.')
-            return pandas.Series(['NA'] * 7)
+            return pandas.Series(['Not Found'] * 7)
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number)
@@ -129,7 +129,7 @@ class GitHubPullRequestHelper:
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
         elif status_code == 404:
             self.logger.warn(f'Pull request comment not found: {url}.')
-            return pandas.Series(['NA'] * 5)
+            return pandas.Series(['Not Found'] * 5)
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number, comment_id)
