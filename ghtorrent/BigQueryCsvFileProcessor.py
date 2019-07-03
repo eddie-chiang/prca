@@ -209,68 +209,68 @@ class BigQueryCsvFileProcessor:
             # Add any missing columns
             chunk = self.__get_header_fields(chunk)
 
-            chunk[['pr_comments_cnt', 
-                'pr_review_comments_cnt', 
-                'pr_commits_cnt',
-                'pr_additions',
-                'pr_deletions',
-                'pr_changed_files',
-                'pr_merged_by_user_id']] = chunk.apply(
+            chunk[['pr_comments_cnt',
+                   'pr_review_comments_cnt',
+                   'pr_commits_cnt',
+                   'pr_additions',
+                   'pr_deletions',
+                   'pr_changed_files',
+                   'pr_merged_by_user_id']] = chunk.apply(
                 lambda row:
                     self.github_helper.get_pull_request_info(
-                        row['project_url'], 
+                        row['project_url'],
                         int(row['pullreq_id']))
                     if pandas.isna(row['pr_comments_cnt'])
-                        or pandas.isna(row['pr_review_comments_cnt'])
-                        or pandas.isna(row['pr_commits_cnt'])
-                        or pandas.isna(row['pr_additions'])
-                        or pandas.isna(row['pr_deletions'])
-                        or pandas.isna(row['pr_changed_files'])
-                        or pandas.isna(row['pr_merged_by_user_id'])
+                or pandas.isna(row['pr_review_comments_cnt'])
+                or pandas.isna(row['pr_commits_cnt'])
+                or pandas.isna(row['pr_additions'])
+                or pandas.isna(row['pr_deletions'])
+                or pandas.isna(row['pr_changed_files'])
+                or pandas.isna(row['pr_merged_by_user_id'])
                     else
-                        pandas.Series([
-                            row['pr_comments_cnt'],
-                            row['pr_review_comments_cnt'],
-                            row['pr_commits_cnt'],
-                            row['pr_additions'],
-                            row['pr_deletions'],
-                            row['pr_changed_files'],
-                            row['pr_merged_by_user_id']
-                        ]),
+                pandas.Series([
+                    row['pr_comments_cnt'],
+                    row['pr_review_comments_cnt'],
+                    row['pr_commits_cnt'],
+                    row['pr_additions'],
+                    row['pr_deletions'],
+                    row['pr_changed_files'],
+                    row['pr_merged_by_user_id']
+                ]),
                 axis='columns')
 
-            chunk[['comment_author_association', 
-                'comment_updated_at', 
-                'comment_html_url',
-                'pr_commits_cnt_prior_to_comment',
-                'commit_file_status',
-                'commit_file_additions',
-                'commit_file_deletions',
-                'commit_file_changes']] = chunk.apply(
+            chunk[['comment_author_association',
+                   'comment_updated_at',
+                   'comment_html_url',
+                   'pr_commits_cnt_prior_to_comment',
+                   'commit_file_status',
+                   'commit_file_additions',
+                   'commit_file_deletions',
+                   'commit_file_changes']] = chunk.apply(
                 lambda row:
                     self.github_helper.get_pull_request_comment_info(
-                        row['project_url'], 
+                        row['project_url'],
                         int(row['pullreq_id']),
                         int(row['comment_id']))
                     if pandas.isna(row['comment_author_association'])
-                        or pandas.isna(row['comment_updated_at'])
-                        or pandas.isna(row['comment_html_url'])
-                        or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
-                        or pandas.isna(row['commit_file_status'])
-                        or pandas.isna(row['commit_file_additions'])
-                        or pandas.isna(row['commit_file_deletions'])
-                        or pandas.isna(row['commit_file_changes'])
+                or pandas.isna(row['comment_updated_at'])
+                or pandas.isna(row['comment_html_url'])
+                or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
+                or pandas.isna(row['commit_file_status'])
+                or pandas.isna(row['commit_file_additions'])
+                or pandas.isna(row['commit_file_deletions'])
+                or pandas.isna(row['commit_file_changes'])
                     else
-                        pandas.Series([
-                            row['comment_author_association'],
-                            row['comment_updated_at'],
-                            row['comment_html_url'],
-                            row['pr_commits_cnt_prior_to_comment'],                            
-                            row['commit_file_status'],
-                            row['commit_file_additions'],
-                            row['commit_file_deletions'],
-                            row['commit_file_changes']
-                        ]),
+                pandas.Series([
+                    row['comment_author_association'],
+                    row['comment_updated_at'],
+                    row['comment_html_url'],
+                    row['pr_commits_cnt_prior_to_comment'],
+                    row['commit_file_status'],
+                    row['commit_file_additions'],
+                    row['commit_file_deletions'],
+                    row['commit_file_changes']
+                ]),
                 axis='columns')
 
             chunk.to_csv(tmp_csv,
@@ -291,12 +291,9 @@ class BigQueryCsvFileProcessor:
                 progress_pct = progress_pct_floor
                 self.logger.info(
                     f'Progress: {progress_pct / 100}%, row reprocessed: {ctr}')
-            
-            self.logger.info(f'Random line')
 
-
-        # tmp_csv.rename(processed_csv_file)
-        # tmp_stats_csv.rename(processed_stats_csv_file)
+        tmp_csv.rename(processed_csv_file)
+        tmp_stats_csv.rename(processed_stats_csv_file)
         self.logger.info(
             f'Processing completed, output file: {processed_csv_file}')
 
