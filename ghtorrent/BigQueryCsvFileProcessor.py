@@ -226,6 +226,7 @@ class BigQueryCsvFileProcessor:
                         or pandas.isna(row['pr_additions'])
                         or pandas.isna(row['pr_deletions'])
                         or pandas.isna(row['pr_changed_files'])
+                        or pandas.isna(row['pr_merged_by_user_id'])
                     else
                         pandas.Series([
                             row['pr_comments_cnt'],
@@ -237,13 +238,11 @@ class BigQueryCsvFileProcessor:
                             row['pr_merged_by_user_id']
                         ]),
                 axis='columns')
-                
-            # Commits on the Pull Request, e.g. https://api.github.com/repos/realm/realm-java/pulls/5473/commits
-            # df['pr_commits_prior_to_comment'] = ''
 
             chunk[['comment_author_association', 
                 'comment_updated_at', 
                 'comment_html_url',
+                'pr_commits_cnt_prior_to_comment',
                 'commit_file_status',
                 'commit_file_additions',
                 'commit_file_deletions',
@@ -251,10 +250,12 @@ class BigQueryCsvFileProcessor:
                 lambda row:
                     self.github_helper.get_pull_request_comment_info(
                         row['project_url'], 
+                        int(row['pullreq_id']),
                         int(row['comment_id']))
                     if pandas.isna(row['comment_author_association'])
                         or pandas.isna(row['comment_updated_at'])
                         or pandas.isna(row['comment_html_url'])
+                        or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
                         or pandas.isna(row['commit_file_status'])
                         or pandas.isna(row['commit_file_additions'])
                         or pandas.isna(row['commit_file_deletions'])
@@ -264,6 +265,7 @@ class BigQueryCsvFileProcessor:
                             row['comment_author_association'],
                             row['comment_updated_at'],
                             row['comment_html_url'],
+                            row['pr_commits_cnt_prior_to_comment'],                            
                             row['commit_file_status'],
                             row['commit_file_additions'],
                             row['commit_file_deletions'],
@@ -321,6 +323,7 @@ class BigQueryCsvFileProcessor:
                    'comment_author_association',
                    'comment_updated_at',
                    'comment_html_url',
+                   'pr_commits_cnt_prior_to_comment',
                    'commit_file_status',
                    'commit_file_additions',
                    'commit_file_deletions',
