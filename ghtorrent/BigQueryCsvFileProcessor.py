@@ -337,7 +337,7 @@ class BigQueryCsvFileProcessor:
         # Add missing columns
         for col in columns:
             if col not in df.columns:
-                df[col] = ''
+                df[col] = None
 
         return df
 
