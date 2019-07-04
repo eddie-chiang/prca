@@ -101,7 +101,7 @@ class CommentLoader:
                 collection = self.__get_connection(self.server)
                 doc = collection.find_one(query)
                 success = True
-            except Exception as e:
+            except Exception:
                 playsound(self.error_alert_sound_file, False)
                 self.logger.exception(
                     f'Failed to load comment, owner: {owner}, repo: {repo}, pullreq_id: {pullreq_id}, comment_id: {comment_id}, retry after 5 seconds.')
