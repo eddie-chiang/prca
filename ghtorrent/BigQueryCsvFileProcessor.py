@@ -94,7 +94,7 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df = pandas.DataFrame(
                 data=dict([(key, pandas.Series(value)) for key, value in stats.items()]))
 
-        pbar = tqdm(total=total_rows-ctr, desc='Process CSV')
+        pbar = tqdm(total=total_rows, desc='Process CSV', initial=ctr)
 
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
