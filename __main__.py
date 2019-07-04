@@ -72,8 +72,9 @@ def main():
         logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.
         while True:
-            playsound(error_alert_sound_file, False)
-            time.sleep(5)
+            for _ in range(3):
+                playsound(error_alert_sound_file, True)
+            time.sleep(30)
 
     manual_labelling_file_generator = FileGenerator()
     manual_labelling_file_generator.generate(
