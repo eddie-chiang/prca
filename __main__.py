@@ -116,7 +116,7 @@ def main():
     # # # Use Term Frequency-Inverse Document Frequency (TD-IDEF) to measure topic relevance.
     # # tfidf = gensim.models.TfidfModel()
 
-    # logger.info('Program ended.')
+    logger.info('Program ended.')
 
 
 # def lemmatize_stemming(text):
