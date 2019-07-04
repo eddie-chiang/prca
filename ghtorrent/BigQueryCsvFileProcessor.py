@@ -2,10 +2,12 @@
 import logging
 import math
 import pandas
+import time
 from commentprocessing import CommentLoader, LanguageDetector, GitHubPullRequestHelper
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
 from pathlib import Path
+from tqdm import tqdm
 
 
 class BigQueryCsvFileProcessor:
@@ -58,7 +60,7 @@ class BigQueryCsvFileProcessor:
         total_rows = data_frame.shape[0]
         self.logger.info(f'No. of rows in {csv_file}: {total_rows}')
 
-        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = progress_pct = 0
+        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = 0
         tmp_stats_df = None
 
         if tmp_csv.exists():
@@ -92,6 +94,8 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df = pandas.DataFrame(
                 data=dict([(key, pandas.Series(value)) for key, value in stats.items()]))
 
+        pbar = tqdm(total=total_rows-ctr, desc='Process CSV')
+
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
             csv_file, chunksize=100, converters={'body': str}, skiprows=range(1, ctr + 1))
@@ -103,7 +107,9 @@ class BigQueryCsvFileProcessor:
             chunk = self.__get_header_fields(chunk)
 
             # Process comments.
-            chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.apply(
+            # Register `pandas.progress_apply` with `tqdm`.
+            tqdm.pandas(desc='Load comment', leave=False)
+            chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.progress_apply(
                 lambda row: self.__load_comment(
                     row['body'],
                     row['project_url'],
@@ -111,18 +117,20 @@ class BigQueryCsvFileProcessor:
                     int(row['comment_id'])),
                 axis='columns')
 
+            tqdm.pandas(desc='Load pull request', leave=False)
             chunk[['pr_comments_cnt',
                    'pr_review_comments_cnt',
                    'pr_commits_cnt',
                    'pr_additions',
                    'pr_deletions',
                    'pr_changed_files',
-                   'pr_merged_by_user_id']] = chunk.apply(
+                   'pr_merged_by_user_id']] = chunk.progress_apply(
                 lambda row: self.__get_pull_request_info(row)
                 if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
                 else pandas.Series(['Not Available'] * 7),
                 axis='columns')
 
+            tqdm.pandas(desc='Load commit info', leave=False)
             chunk[['comment_author_association',
                    'comment_updated_at',
                    'comment_html_url',
@@ -130,7 +138,7 @@ class BigQueryCsvFileProcessor:
                    'commit_file_status',
                    'commit_file_additions',
                    'commit_file_deletions',
-                   'commit_file_changes']] = chunk.apply(
+                   'commit_file_changes']] = chunk.progress_apply(
                        lambda row: self.__get_comment_info(row)
                        if row['pr_commits_cnt'] not in ['Not Available', 'Not Found']
                        else pandas.Series(['Not Available'] * 8),
@@ -163,7 +171,8 @@ class BigQueryCsvFileProcessor:
                 & (chunk['comment_html_url'] != 'Not Found')]
 
             if chunk.shape[0] > 0:
-                chunk['dialogue_act_classification_ml'] = chunk.apply(
+                tqdm.pandas(desc='Dialogue Act Classification', leave=False)
+                chunk['dialogue_act_classification_ml'] = chunk.progress_apply(
                     lambda row:
                         self.dac_classifier.classify(row['body']),
                     axis=1)
@@ -185,12 +194,11 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df.to_csv(tmp_stats_csv,
                                 index=False, header=True, mode='w')
 
-            # Progress precision: 0.01%.
-            progress_pct_floor = math.floor(ctr / total_rows * 10000)
-            if progress_pct_floor != progress_pct:
-                progress_pct = progress_pct_floor
-                self.logger.info(
-                    f'At {progress_pct / 100}%, row processed: {ctr}, comment truncated: {truncated_ctr}, non English: {non_eng_ctr}, deleted from MongoDB/GitHub: {del_from_mongo_ctr}/{del_from_github_ctr}, total skipped: {skip_ctr}')
+            pbar.update(chunk_size)
+            pbar.write(
+                f'Comment truncated: {truncated_ctr}, non English: {non_eng_ctr}, deleted from MongoDB/GitHub: {del_from_mongo_ctr}/{del_from_github_ctr}, total skipped: {skip_ctr}')
+
+        pbar.close()
 
         tmp_csv.rename(final_csv)
         tmp_stats_csv.rename(final_stats_csv)
@@ -217,7 +225,6 @@ class BigQueryCsvFileProcessor:
         self.logger.info(f'No. of rows in {processed_csv_file}: {total_rows}')
 
         ctr = 0
-        progress_pct = 0
 
         if tmp_csv.exists():
             ctr = pandas.read_csv(tmp_csv).shape[0]
@@ -225,6 +232,7 @@ class BigQueryCsvFileProcessor:
             self.logger.warn(
                 f'The file {tmp_csv.name} already exists, no. of rows in the file: {ctr}. Resuming...')
 
+        pbar = tqdm(total=total_rows, desc='Process CSV')
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(processed_csv_file, chunksize=100, converters={
                                      'body': str}, skiprows=range(1, ctr + 1))
@@ -232,16 +240,18 @@ class BigQueryCsvFileProcessor:
             # Add any missing columns
             chunk = self.__get_header_fields(chunk)
 
+            tqdm.pandas(desc='Load pull request', leave=False)
             chunk[['pr_comments_cnt',
                    'pr_review_comments_cnt',
                    'pr_commits_cnt',
                    'pr_additions',
                    'pr_deletions',
                    'pr_changed_files',
-                   'pr_merged_by_user_id']] = chunk.apply(
+                   'pr_merged_by_user_id']] = chunk.progress_apply(
                 lambda row: self.__get_pull_request_info(row),
                 axis='columns')
 
+            tqdm.pandas(desc='Load commit info', leave=False)
             chunk[['comment_author_association',
                    'comment_updated_at',
                    'comment_html_url',
@@ -249,7 +259,7 @@ class BigQueryCsvFileProcessor:
                    'commit_file_status',
                    'commit_file_additions',
                    'commit_file_deletions',
-                   'commit_file_changes']] = chunk.apply(
+                   'commit_file_changes']] = chunk.progress_apply(
                        lambda row: self.__get_comment_info(row)
                        if row['pr_commits_cnt'] != 'Not Available'
                        else pandas.Series(['Not Available'] * 8),
@@ -261,14 +271,17 @@ class BigQueryCsvFileProcessor:
                          mode='w' if ctr == 0 else 'a')
 
             ctr += chunk.shape[0]
+            pbar.update(chunk.shape[0])
 
-            # Progress precision: 0.01%.
-            progress_pct_floor = math.floor(ctr / total_rows * 10000)
-            if progress_pct_floor != progress_pct:
-                progress_pct = progress_pct_floor
-                self.logger.info(
-                    f'Progress: {progress_pct / 100}%, row reprocessed: {ctr}')
+        pbar.close()
 
+        backup_csv = Path(
+            processed_csv_file.absolute().as_posix()
+            .replace(
+                '.csv',
+                f'_backup_{time.strftime("%Y%m%d-%H%M%S")}.csv'
+            ))
+        processed_csv_file.rename(backup_csv)
         tmp_csv.rename(processed_csv_file)
         self.logger.info(
             f'Processing completed, output file: {processed_csv_file}')
