@@ -318,14 +318,12 @@ class BigQueryCsvFileProcessor:
                    'commit_file_changes']
 
         # Remove unused columns.
-        for col in df:
-            if col not in columns:
-                df.drop(columns=col, inplace=True)
+        for col in (col for col in df if col not in columns):
+            df.drop(columns=col, inplace=True)
 
         # Add missing columns
-        for col in columns:
-            if col not in df.columns:
-                df[col] = None
+        for col in (col for col in columns if col not in df.columns):
+            df[col] = None
 
         return df
 
