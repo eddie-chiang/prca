@@ -94,8 +94,7 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df = pandas.DataFrame(
                 data=dict([(key, pandas.Series(value)) for key, value in stats.items()]))
 
-        pbar = tqdm(total=total_rows, desc='Process CSV', initial=ctr)
-
+        pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
             csv_file, chunksize=100, converters={'body': str}, skiprows=range(1, ctr + 1))
@@ -232,7 +231,7 @@ class BigQueryCsvFileProcessor:
             self.logger.warn(
                 f'The file {tmp_csv.name} already exists, no. of rows in the file: {ctr}. Resuming...')
 
-        pbar = tqdm(total=total_rows, desc='Process CSV')
+        pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(processed_csv_file, chunksize=100, converters={
                                      'body': str}, skiprows=range(1, ctr + 1))
