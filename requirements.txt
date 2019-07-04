@@ -7,3 +7,4 @@ playsound
 pymongo
 requests-cache
 sshtunnel
+tqdm
