@@ -42,32 +42,32 @@ def main():
         cfg['github']['personal_access_tokens'].get(list),
         cfg['github']['requests_cache_file'].as_filename())
 
-    comment_loader = CommentLoader(cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
-                                   cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(
-        int),
-        cfg['ghtorrent_mongodb']['ssh_username'].get(),
-        cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
-        cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(
-    ),
-        cfg['ghtorrent_mongodb']['host'].get(),
-        cfg['ghtorrent_mongodb']['port'].get(int),
-        cfg['ghtorrent_mongodb']['username'].get(),
-        cfg['ghtorrent_mongodb']['password'].get(),
-        cfg['ghtorrent_mongodb']['database'].get(),
-        error_alert_sound_file)
-
-    dac_classifier = Classifier(Path(cfg['dialogue_act_classification']['trained_classifier_file'].as_filename()),
-                                cfg['dialogue_act_classification']['train_classifier'].get(
-                                    bool),
-                                cfg['dialogue_act_classification']['test_set_percentage'].as_number())
+    dac_classifier = Classifier(
+        Path(cfg['dialogue_act_classification']
+             ['trained_classifier_file'].as_filename()),
+        cfg['dialogue_act_classification']['train_classifier'].get(bool),
+        cfg['dialogue_act_classification']['test_set_percentage'].as_number())
 
     try:
-        file_processor = BigQueryCsvFileProcessor(comment_loader,
-                                                  dac_classifier,
-                                                  github_helper)
-        pull_request_comments_csv_file_processed, _ = file_processor.process(
-            pull_request_comments_csv_file)
-        _ = file_processor.reprocess(pull_request_comments_csv_file_processed)
+        with CommentLoader(
+                cfg['ghtorrent_mongodb']['ssh_tunnel_host'].get(),
+                cfg['ghtorrent_mongodb']['ssh_tunnel_port'].get(int),
+                cfg['ghtorrent_mongodb']['ssh_username'].get(),
+                cfg['ghtorrent_mongodb']['ssh_private_key'].get(),
+                cfg['ghtorrent_mongodb']['ssh_private_key_password'].get(),
+                cfg['ghtorrent_mongodb']['host'].get(),
+                cfg['ghtorrent_mongodb']['port'].get(int),
+                cfg['ghtorrent_mongodb']['username'].get(),
+                cfg['ghtorrent_mongodb']['password'].get(),
+                cfg['ghtorrent_mongodb']['database'].get(),
+                error_alert_sound_file) as comment_loader:
+            file_processor = BigQueryCsvFileProcessor(comment_loader,
+                                                      dac_classifier,
+                                                      github_helper)
+            pull_request_comments_csv_file_processed, _ = file_processor.process(
+                pull_request_comments_csv_file)
+            file_processor.reprocess(
+                pull_request_comments_csv_file_processed)
     except Exception:
         logger.exception(f'Failed to process the BigQuery .csv file.')
         # Continuously make alert sound until manual interruption.
