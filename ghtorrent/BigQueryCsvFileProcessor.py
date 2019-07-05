@@ -96,7 +96,7 @@ class BigQueryCsvFileProcessor:
         # Set up before the loop
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         commentExecutor = ThreadPoolExecutor(
-            max_workers=30, thread_name_prefix='CommentLoader')
+            max_workers=20, thread_name_prefix='CommentLoader')
         gitHubExecutor = ThreadPoolExecutor(
             thread_name_prefix='GitHubPullRequestHelper')
 
