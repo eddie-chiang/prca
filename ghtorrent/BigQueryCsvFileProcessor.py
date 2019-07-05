@@ -355,7 +355,6 @@ class BigQueryCsvFileProcessor:
                    'body',
                    'commit_id',
                    'created_at',
-                   'comment_from_mongodb',
                    'dialogue_act_classification_ml',
                    'pr_comments_cnt',
                    'pr_review_comments_cnt',
