@@ -64,10 +64,12 @@ class CommentLoader:
         if CommentLoader.server.is_active and self.collection != None:
             return self.collection
 
-        if not CommentLoader.server.is_active:
-            self.logger.info(
-                f'SSH Tunnel is not active, connecting to {CommentLoader.server.ssh_host}:{CommentLoader.server.ssh_port}...')
-            CommentLoader.server.restart()
+        # Using a thread lock to avoid creating multiple SSH tunnels.
+        with CommentLoader.__lock:
+            if not CommentLoader.server.is_active:
+                self.logger.info(
+                    f'SSH Tunnel is not active, connecting to {CommentLoader.server.ssh_host}:{CommentLoader.server.ssh_port}...')
+                CommentLoader.server.restart()
 
         self.mongo_client = MongoClient('127.0.0.1',
                                         CommentLoader.server.local_bind_port,
