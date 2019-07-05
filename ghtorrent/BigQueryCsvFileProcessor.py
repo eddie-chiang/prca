@@ -64,8 +64,8 @@ class BigQueryCsvFileProcessor:
         total_rows = data_frame.shape[0]
         self.logger.info(f'No. of rows in {csv_file}: {total_rows}')
 
-        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = 0        
-        
+        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = 0
+
         tmp_stats_df = None
         if tmp_csv.exists():
             tmp_total_rows = pandas.read_csv(tmp_csv).shape[0]
@@ -100,7 +100,10 @@ class BigQueryCsvFileProcessor:
 
         # Set up before the loop
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
-        commentExecutor = ThreadPoolExecutor(max_workers=30, thread_name_prefix='CommentLoader')       
+        commentExecutor = ThreadPoolExecutor(
+            max_workers=30, thread_name_prefix='CommentLoader')
+        gitHubExecutor = ThreadPoolExecutor(
+            thread_name_prefix='GitHubPullRequestHelper')
 
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
@@ -125,22 +128,19 @@ class BigQueryCsvFileProcessor:
                 chunk['body'].to_numpy(dtype=str)) == 255
             truncated_ctr += len(chunk[chunk['is_truncated'] == True].index)
 
-            project_urls_gen_exp = (
-                chunk[chunk['is_truncated'] == True]['project_url'])
-
             # https://api.github.com/repos/{owner}/{repo}
             chunk.loc[chunk['is_truncated'] == True, 'owner'] = [
                 url[url.rfind('/', 0, url.rfind('/')) + 1:url.rfind('/')]
-                for url in project_urls_gen_exp
+                for url in chunk[chunk['is_truncated'] == True]['project_url']
             ]
 
             chunk.loc[chunk['is_truncated'] == True, 'repo'] = [
                 url[url.rfind('/') + 1:]
-                for url in project_urls_gen_exp
+                for url in chunk[chunk['is_truncated'] == True]['project_url']
             ]
 
             # Loading comment from MongoDB has a lot of IO waits, use threading.
-            chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(tqdm(
+            chunk.loc[chunk['is_truncated'] == True, 'body'] = list(tqdm(
                 commentExecutor.map(
                     self.comment_loader.load,
                     chunk[chunk['is_truncated'] == True]['owner'],
@@ -149,43 +149,41 @@ class BigQueryCsvFileProcessor:
                     chunk[chunk['is_truncated'] == True]['comment_id'],
                     timeout=600
                 ),
-                desc='Load comment', 
+                desc='Load comment',
                 leave=False
             ))
 
-            # pr = cProfile.Profile()
-            # pr.enable()
+            # Filter out comments deleted from MongoDB.
+            del_from_mongo_ctr += len(chunk[chunk['body'].isnull()].index)
+            chunk = chunk[chunk['body'].notnull()]
 
+            # Loading pull request from GitHub.
+            tqdm.pandas(desc='Load pull request', leave=True)
+            chunk[['pr_comments_cnt',
+                   'pr_review_comments_cnt',
+                   'pr_commits_cnt',
+                   'pr_additions',
+                   'pr_deletions',
+                   'pr_changed_files',
+                   'pr_merged_by_user_id']] = chunk.progress_apply(
+                lambda row:
+                list(gitHubExecutor.map(
+                    self.__get_pull_request_info,
+                    [row],
+                    timeout=600
+                ))[0],
+                axis='columns',
+                result_type='expand')
 
+            pr = cProfile.Profile()
+            pr.enable()
 
-            # pr.disable()
-            # pstats.Stats(pr).strip_dirs().sort_stats(
-            #     pstats.SortKey.CUMULATIVE).print_stats(50)
+            
+            pr.disable()
+            pstats.Stats(pr).strip_dirs().sort_stats(
+                pstats.SortKey.CUMULATIVE).print_stats(50)
 
-            # Process comments.
-            # Register `pandas.progress_apply` with `tqdm`.
-            # tqdm.pandas(desc='Load comment', leave=False)
-            # chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.progress_apply(
-            #     lambda row: self.__load_comment(
-            #         row['body'],
-            #         row['project_url'],
-            #         int(row['pullreq_id']),
-            #         int(row['comment_id'])),
-            #     axis='columns')
-
-            # tqdm.pandas(desc='Load pull request', leave=False)
-            # chunk[['pr_comments_cnt',
-            #        'pr_review_comments_cnt',
-            #        'pr_commits_cnt',
-            #        'pr_additions',
-            #        'pr_deletions',
-            #        'pr_changed_files',
-            #        'pr_merged_by_user_id']] = chunk.progress_apply(
-            #     lambda row: self.__get_pull_request_info(row)
-            #     if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
-            #     else pandas.Series(['Not Available'] * 7),
-            #     axis='columns')
-
+            
             # tqdm.pandas(desc='Load commit info', leave=False)
             # chunk[['comment_author_association',
             #        'comment_updated_at',
@@ -257,6 +255,7 @@ class BigQueryCsvFileProcessor:
         # Clean up after the loop
         pbar.close()
         commentExecutor.shutdown()
+        gitHubExecutor.shutdown()
 
         # tmp_csv.rename(final_csv)
         # tmp_stats_csv.rename(final_stats_csv)
@@ -385,30 +384,6 @@ class BigQueryCsvFileProcessor:
 
         return df
 
-    def __load_comment(self, comment: str, project_url: str, pullreq_id: int, comment_id: int):
-        is_truncated = False
-        is_eng = True
-        is_deleted = False
-
-        if LanguageDetector.is_english(comment) is not True:
-            # Comment detected as not in English, skip the row for further processing.
-            is_eng = False
-            comment = None
-        elif len(comment) == 255:
-            # Likely to be a truncated comment, load using CommentLoader.
-            is_truncated = True
-            owner = project_url.replace('https://api.github.com/repos/', '')
-            owner = owner[0:owner.index('/')]
-            repo = project_url[project_url.rfind('/') + 1:]
-
-            comment = self.comment_loader.load(
-                owner, repo, pullreq_id, comment_id)
-
-            # Comment may have been deleted from GitHub, skip the row for further processing.
-            is_deleted = False if comment is not None else True
-
-        return pandas.Series([comment, is_eng, is_truncated, is_deleted])
-
     def __get_comment_info(self, row):
         if (pandas.isna(row['comment_author_association'])
             or pandas.isna(row['comment_updated_at'])
@@ -450,7 +425,7 @@ class BigQueryCsvFileProcessor:
                 int(row['pullreq_id']))
         else:
             # Return the original info.
-            return pandas.Series([
+            return [
                 row['pr_comments_cnt'],
                 row['pr_review_comments_cnt'],
                 row['pr_commits_cnt'],
@@ -458,4 +433,4 @@ class BigQueryCsvFileProcessor:
                 row['pr_deletions'],
                 row['pr_changed_files'],
                 row['pr_merged_by_user_id']
-            ])
+            ]
