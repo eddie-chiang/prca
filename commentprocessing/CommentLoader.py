@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from playsound import playsound
 from pymongo import MongoClient
@@ -22,6 +23,8 @@ class CommentLoader:
         db (str): MongoDB database
         error_alert_sound_file (str): A path pointing to the error alert sound.
     """
+    server = None  # Static variable
+    __lock = threading.Lock()
 
     def __init__(self,
                  ssh_host: str,
@@ -36,11 +39,11 @@ class CommentLoader:
                  db: str,
                  error_alert_sound_file: str):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.server = SSHTunnelForwarder((ssh_host, ssh_port),
-                                         ssh_username=ssh_username,
-                                         ssh_pkey=ssh_pkey,
-                                         ssh_private_key_password=db_password,
-                                         remote_bind_address=(db_host, db_port))
+        CommentLoader.server = SSHTunnelForwarder((ssh_host, ssh_port),
+                                                  ssh_username=ssh_username,
+                                                  ssh_pkey=ssh_pkey,
+                                                  ssh_private_key_password=db_password,
+                                                  remote_bind_address=(db_host, db_port))
 
         self.db_username = db_username
         self.db_password = db_password
@@ -54,28 +57,29 @@ class CommentLoader:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.mongo_client != None:
-            self.mongo_client.close() 
-        self.server.stop()  # Close SSH tunnel
+            self.mongo_client.close()
+        CommentLoader.server.stop()  # Close SSH tunnel
 
-    def __get_connection(self, server: SSHTunnelForwarder):
-        if server.is_active:
+    def __get_connection(self):
+        if CommentLoader.server.is_active and self.collection != None:
             return self.collection
 
-        self.logger.info(
-            f'SSH Tunnel is not active, connecting to {server.ssh_host}:{server.ssh_port}...')
+        if not CommentLoader.server.is_active:
+            self.logger.info(
+                f'SSH Tunnel is not active, connecting to {CommentLoader.server.ssh_host}:{CommentLoader.server.ssh_port}...')
+            CommentLoader.server.restart()
 
-        server.restart()
         self.mongo_client = MongoClient('127.0.0.1',
-                                   server.local_bind_port,
-                                   username=self.db_username,
-                                   password=self.db_password,
-                                   authSource=self.db,
-                                   authMechanism='SCRAM-SHA-1')
+                                        CommentLoader.server.local_bind_port,
+                                        username=self.db_username,
+                                        password=self.db_password,
+                                        authSource=self.db,
+                                        authMechanism='SCRAM-SHA-1')
         mongo_db = self.mongo_client[self.db]
         self.collection = mongo_db['pull_request_comments']
 
         self.logger.info(
-            f'Connecting to MongoDB 127.0.0.1:{server.local_bind_port}.')
+            f'Connecting to MongoDB 127.0.0.1:{CommentLoader.server.local_bind_port}.')
         # The ismaster command is cheap and does not require auth.
         self.mongo_client.admin.command('ismaster')
         self.logger.info('Successfully connected to MongoDB server.')
@@ -101,7 +105,7 @@ class CommentLoader:
         success = False
         while success != True:
             try:
-                collection = self.__get_connection(self.server)
+                collection = self.__get_connection()
                 doc = collection.find_one(query)
                 success = True
             except Exception:

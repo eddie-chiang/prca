@@ -1,5 +1,5 @@
 import cProfile
-
+import copy
 import logging
 import math
 import numpy
@@ -152,15 +152,15 @@ class BigQueryCsvFileProcessor:
             # chunk['pullreq_id'] = chunk['pullreq_id'].astype(int)
             # chunk['comment_id'] = chunk['comment_id'].astype(int)
             with ThreadPoolExecutor(max_workers=2) as executor:
-                chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(
+                chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(tqdm(
                     executor.map(
-                        self.comment_loader.load, 
-                        tqdm(chunk[chunk['is_truncated'] == True]['owner']),
+                        self.comment_loader.load,
+                        chunk[chunk['is_truncated'] == True]['owner'],
                         chunk[chunk['is_truncated'] == True]['repo'],
                         chunk[chunk['is_truncated'] == True]['pullreq_id'],
                         chunk[chunk['is_truncated'] == True]['comment_id']
                     )
-                )
+                ))
 
             pr.disable()
             pstats.Stats(pr).strip_dirs().sort_stats(
