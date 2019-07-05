@@ -1,9 +1,13 @@
+import cProfile
 
 import logging
 import math
+import numpy
 import pandas
+import pstats
 import time
 from commentprocessing import CommentLoader, LanguageDetector, GitHubPullRequestHelper
+from concurrent.futures import ThreadPoolExecutor
 from csv import DictReader, DictWriter
 from dialogueactclassification import Classifier
 from pathlib import Path
@@ -97,7 +101,7 @@ class BigQueryCsvFileProcessor:
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
-            csv_file, chunksize=100, converters={'body': str}, skiprows=range(1, ctr + 1))
+            csv_file, chunksize=5000, converters={'body': str}, skiprows=range(1, ctr + 1))
         for chunk in data_frame:
             # Get chunk size first before any filtering.
             chunk_size = chunk.shape[0]
@@ -105,81 +109,141 @@ class BigQueryCsvFileProcessor:
             # Add new columns
             chunk = self.__get_header_fields(chunk)
 
+            # Filter to only English comments.
+            chunk['is_eng'] = chunk.apply(
+                lambda row: LanguageDetector.is_english(row['body']),
+                axis='columns')
+            chunk = chunk[chunk['is_eng'] == True]
+            non_eng_ctr += chunk_size - chunk.shape[0]
+            chunk.drop(columns='is_eng', inplace=True)
+
+            # Identify possible truncated comments and load from GHTorrent MongoDB.
+            chunk['is_truncated'] = numpy.char.str_len(
+                chunk['body'].to_numpy(dtype=str)) == 255
+            truncated_ctr += len(chunk[chunk['is_truncated'] == True].index)
+
+            project_urls_gen_exp = (
+                chunk[chunk['is_truncated'] == True]['project_url'])
+
+            # https://api.github.com/repos/{owner}/{repo}
+            chunk.loc[chunk['is_truncated'] == True, 'owner'] = [
+                url[url.rfind('/', 0, url.rfind('/')) + 1:url.rfind('/')]
+                for url in project_urls_gen_exp
+            ]
+
+            chunk.loc[chunk['is_truncated'] == True, 'repo'] = [
+                url[url.rfind('/') + 1:]
+                for url in project_urls_gen_exp
+            ]
+
+            tqdm.pandas(desc='Load comment', leave=False)
+            # chunk.loc[chunk['is_truncated'] == True, 'comment'] = [
+            #     self.comment_loader.load(
+            #         owner, repo, int(pullreq_id), int(comment_id))
+            #     for owner, repo, pullreq_id, comment_id
+            #     in tqdm(
+            #         chunk[chunk['is_truncated'] == True][[
+            #             'owner', 'repo', 'pullreq_id', 'comment_id']].to_numpy()
+            #     )
+            # ]
+
+            pr = cProfile.Profile()
+            pr.enable()
+            # chunk['pullreq_id'] = chunk['pullreq_id'].astype(int)
+            # chunk['comment_id'] = chunk['comment_id'].astype(int)
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(
+                    executor.map(
+                        self.comment_loader.load, 
+                        tqdm(chunk[chunk['is_truncated'] == True]['owner']),
+                        chunk[chunk['is_truncated'] == True]['repo'],
+                        chunk[chunk['is_truncated'] == True]['pullreq_id'],
+                        chunk[chunk['is_truncated'] == True]['comment_id']
+                    )
+                )
+
+            pr.disable()
+            pstats.Stats(pr).strip_dirs().sort_stats(
+                pstats.SortKey.CUMULATIVE).print_stats(50)
+
+            # # Comment may have been deleted from GitHub, skip the row for further processing.
+            # is_deleted = False if comment is not None else True
+
             # Process comments.
             # Register `pandas.progress_apply` with `tqdm`.
-            tqdm.pandas(desc='Load comment', leave=False)
-            chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.progress_apply(
-                lambda row: self.__load_comment(
-                    row['body'],
-                    row['project_url'],
-                    int(row['pullreq_id']),
-                    int(row['comment_id'])),
-                axis='columns')
+            # tqdm.pandas(desc='Load comment', leave=False)
+            # chunk[['body', 'is_eng', 'comment_from_mongodb', 'is_deleted_from_mongodb']] = chunk.progress_apply(
+            #     lambda row: self.__load_comment(
+            #         row['body'],
+            #         row['project_url'],
+            #         int(row['pullreq_id']),
+            #         int(row['comment_id'])),
+            #     axis='columns')
 
-            tqdm.pandas(desc='Load pull request', leave=False)
-            chunk[['pr_comments_cnt',
-                   'pr_review_comments_cnt',
-                   'pr_commits_cnt',
-                   'pr_additions',
-                   'pr_deletions',
-                   'pr_changed_files',
-                   'pr_merged_by_user_id']] = chunk.progress_apply(
-                lambda row: self.__get_pull_request_info(row)
-                if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
-                else pandas.Series(['Not Available'] * 7),
-                axis='columns')
+            # tqdm.pandas(desc='Load pull request', leave=False)
+            # chunk[['pr_comments_cnt',
+            #        'pr_review_comments_cnt',
+            #        'pr_commits_cnt',
+            #        'pr_additions',
+            #        'pr_deletions',
+            #        'pr_changed_files',
+            #        'pr_merged_by_user_id']] = chunk.progress_apply(
+            #     lambda row: self.__get_pull_request_info(row)
+            #     if row['is_deleted_from_mongodb'] == False and row['is_eng'] == True
+            #     else pandas.Series(['Not Available'] * 7),
+            #     axis='columns')
 
-            tqdm.pandas(desc='Load commit info', leave=False)
-            chunk[['comment_author_association',
-                   'comment_updated_at',
-                   'comment_html_url',
-                   'pr_commits_cnt_prior_to_comment',
-                   'commit_file_status',
-                   'commit_file_additions',
-                   'commit_file_deletions',
-                   'commit_file_changes']] = chunk.progress_apply(
-                       lambda row: self.__get_comment_info(row)
-                       if row['pr_commits_cnt'] not in ['Not Available', 'Not Found']
-                       else pandas.Series(['Not Available'] * 8),
-                axis='columns')
+            # tqdm.pandas(desc='Load commit info', leave=False)
+            # chunk[['comment_author_association',
+            #        'comment_updated_at',
+            #        'comment_html_url',
+            #        'pr_commits_cnt_prior_to_comment',
+            #        'commit_file_status',
+            #        'commit_file_additions',
+            #        'commit_file_deletions',
+            #        'commit_file_changes']] = chunk.progress_apply(
+            #            lambda row: self.__get_comment_info(row)
+            #            if row['pr_commits_cnt'] not in ['Not Available', 'Not Found']
+            #            else pandas.Series(['Not Available'] * 8),
+            #     axis='columns')
 
-            truncated_ctr += len(
-                chunk[chunk['comment_from_mongodb'] == True].index)
-            non_eng_ctr += len(chunk[chunk['is_eng'] == False].index)
-            del_from_mongo_ctr += len(
-                chunk[chunk['is_deleted_from_mongodb'] == True].index)
-            del_from_github_ctr += len(
-                chunk[
-                    (chunk['comment_html_url'] == 'Not Found')
-                    | (chunk['pr_commits_cnt'] == 'Not Found')
-                ].index)
-            skip_ctr += len(
-                chunk[
-                    (chunk['comment_html_url'] == 'Not Available')
-                    | (chunk['comment_html_url'] == 'Not Found')
-                ].index)
+            # truncated_ctr += len(
+            #     chunk[chunk['comment_from_mongodb'] == True].index)
+            # non_eng_ctr += len(chunk[chunk['is_eng'] == False].index)
+            # del_from_mongo_ctr += len(
+            #     chunk[chunk['is_deleted_from_mongodb'] == True].index)
+            # del_from_github_ctr += len(
+            #     chunk[
+            #         (chunk['comment_html_url'] == 'Not Found')
+            #         | (chunk['pr_commits_cnt'] == 'Not Found')
+            #     ].index)
+            # skip_ctr += len(
+            #     chunk[
+            #         (chunk['comment_html_url'] == 'Not Available')
+            #         | (chunk['comment_html_url'] == 'Not Found')
+            #     ].index)
 
-            # Remove unused columns.
-            chunk.drop(columns='is_eng', inplace=True)
-            chunk.drop(columns='is_deleted_from_mongodb', inplace=True)
+            # # Remove unused columns.
+            # chunk.drop(columns='is_eng', inplace=True)
+            # chunk.drop(columns='is_deleted_from_mongodb', inplace=True)
 
-            # Filter comments that no longer exists.
-            chunk = chunk[
-                (chunk['body'].notnull())
-                & (chunk['comment_html_url'] != 'Not Available')
-                & (chunk['comment_html_url'] != 'Not Found')]
+            # # Filter comments that no longer exists.
+            # chunk = chunk[
+            #     (chunk['body'].notnull())
+            #     & (chunk['comment_html_url'] != 'Not Available')
+            #     & (chunk['comment_html_url'] != 'Not Found')]
 
-            if chunk.shape[0] > 0:
-                tqdm.pandas(desc='Dialogue Act Classification', leave=False)
-                chunk['dialogue_act_classification_ml'] = chunk.progress_apply(
-                    lambda row:
-                        self.dac_classifier.classify(row['body']),
-                    axis=1)
+            # if chunk.shape[0] > 0:
+            #     tqdm.pandas(desc='Dialogue Act Classification', leave=False)
+            #     chunk['dialogue_act_classification_ml'] = chunk.progress_apply(
+            #         lambda row:
+            #             self.dac_classifier.classify(row['body']),
+            #         axis=1)
 
-                chunk.to_csv(tmp_csv,
-                             index=False,
-                             header=False if ctr > 0 else True,
-                             mode='w' if ctr == 0 else 'a')
+            #     chunk.to_csv(tmp_csv,
+            #                  index=False,
+            #                  header=False if ctr > 0 else True,
+            #                  mode='w' if ctr == 0 else 'a')
 
             ctr += chunk_size
 
@@ -190,8 +254,8 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df['deleted_from_mongodb'].iat[0] = del_from_mongo_ctr
             tmp_stats_df['deleted_from_github'].iat[0] = del_from_github_ctr
             tmp_stats_df['total_skipped'].iat[0] = skip_ctr
-            tmp_stats_df.to_csv(tmp_stats_csv,
-                                index=False, header=True, mode='w')
+            # tmp_stats_df.to_csv(tmp_stats_csv,
+            #                     index=False, header=True, mode='w')
 
             pbar.update(chunk_size)
             pbar.write(
@@ -199,8 +263,8 @@ class BigQueryCsvFileProcessor:
 
         pbar.close()
 
-        tmp_csv.rename(final_csv)
-        tmp_stats_csv.rename(final_stats_csv)
+        # tmp_csv.rename(final_csv)
+        # tmp_stats_csv.rename(final_stats_csv)
         self.logger.info(f'Processing completed, output file: {final_csv}')
 
         return final_csv, final_stats_csv
