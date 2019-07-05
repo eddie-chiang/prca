@@ -137,30 +137,23 @@ class BigQueryCsvFileProcessor:
             ]
 
             tqdm.pandas(desc='Load comment', leave=False)
-            # chunk.loc[chunk['is_truncated'] == True, 'comment'] = [
-            #     self.comment_loader.load(
-            #         owner, repo, int(pullreq_id), int(comment_id))
-            #     for owner, repo, pullreq_id, comment_id
-            #     in tqdm(
-            #         chunk[chunk['is_truncated'] == True][[
-            #             'owner', 'repo', 'pullreq_id', 'comment_id']].to_numpy()
-            #     )
-            # ]
-
-            pr = cProfile.Profile()
-            pr.enable()
-            # chunk['pullreq_id'] = chunk['pullreq_id'].astype(int)
-            # chunk['comment_id'] = chunk['comment_id'].astype(int)
-            with ThreadPoolExecutor(max_workers=2) as executor:
+            # Loading comment from MongoDB has a lot of IO waits, use threading.
+            with ThreadPoolExecutor(max_workers=30, thread_name_prefix='CommentLoader') as executor:
                 chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(tqdm(
                     executor.map(
                         self.comment_loader.load,
                         chunk[chunk['is_truncated'] == True]['owner'],
                         chunk[chunk['is_truncated'] == True]['repo'],
                         chunk[chunk['is_truncated'] == True]['pullreq_id'],
-                        chunk[chunk['is_truncated'] == True]['comment_id']
+                        chunk[chunk['is_truncated'] == True]['comment_id'],
+                        timeout=600
                     )
                 ))
+
+            pr = cProfile.Profile()
+            pr.enable()
+
+
 
             pr.disable()
             pstats.Stats(pr).strip_dirs().sort_stats(
