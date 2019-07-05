@@ -151,7 +151,11 @@ class BigQueryCsvFileProcessor:
             # Filter out comments deleted from MongoDB.
             del_from_mongo_ctr += len(chunk[chunk['body'].isnull()].index)
             chunk = chunk[chunk['body'].notnull()]
+
+            # Drop temp columns
             chunk.drop(columns='is_truncated', inplace=True)
+            chunk.drop(columns='owner', inplace=True)
+            chunk.drop(columns='repo', inplace=True)
 
             tqdm.pandas(desc='Load pull request', leave=False)
             chunk[['pr_comments_cnt',
