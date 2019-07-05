@@ -3,7 +3,7 @@ import threading
 import time
 from playsound import playsound
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ServerSelectionTimeoutError
 from sshtunnel import SSHTunnelForwarder
 
 
@@ -110,10 +110,18 @@ class CommentLoader:
                 collection = self.__get_connection()
                 doc = collection.find_one(query)
                 success = True
-            except Exception:
+            except Exception as e:
                 playsound(self.error_alert_sound_file, False)
                 self.logger.exception(
                     f'Failed to load comment, owner: {owner}, repo: {repo}, pullreq_id: {pullreq_id}, comment_id: {comment_id}, retry after 5 seconds.')
+                
+                if isinstance(e, ServerSelectionTimeoutError):
+                    try:
+                        if self.mongo_client != None:
+                            self.mongo_client.close()
+                    except:
+                        self.logger.exception(f'Failed to close Mongo Client.')
+                    
                 time.sleep(5)
 
         if doc is not None:
