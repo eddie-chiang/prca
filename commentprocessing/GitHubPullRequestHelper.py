@@ -123,7 +123,7 @@ class GitHubPullRequestHelper:
                 comment['updated_at'],
                 comment['html_url']
             ]
-            return result.append(commit_file_series, ignore_index=True)
+            return result.append(commit_file_series)
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
