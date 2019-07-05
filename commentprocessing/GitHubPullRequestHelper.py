@@ -123,13 +123,14 @@ class GitHubPullRequestHelper:
                 comment['updated_at'],
                 comment['html_url']
             ]
-            return result.append(commit_file_series)
+            result.extend(commit_file_series)
+            return result
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
         elif status_code == 404:
             self.logger.warn(f'Pull request comment not found: {url}.')
-            return ['Not Found'] * 5
+            return ['Not Found'] * 8
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number, comment_id)
