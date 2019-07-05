@@ -199,11 +199,7 @@ class BigQueryCsvFileProcessor:
                     (chunk['comment_html_url'] == 'Not Found')
                     | (chunk['pr_commits_cnt'] == 'Not Found')
                 ].index)
-            skip_ctr += len(
-                chunk[
-                    (chunk['comment_html_url'] == 'Not Available')
-                    | (chunk['comment_html_url'] == 'Not Found')
-                ].index)
+            skip_ctr += chunk_size - chunk.shape[0]
             
             if chunk.shape[0] > 0:
                 tqdm.pandas(desc='Dialogue Act Classification', leave=False)
