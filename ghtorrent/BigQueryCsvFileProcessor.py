@@ -194,11 +194,17 @@ class BigQueryCsvFileProcessor:
                 axis='columns',
                 result_type='expand')
             
+            # Filter out records not found from GitHub.
             del_from_github_ctr += len(
                 chunk[
                     (chunk['comment_html_url'] == 'Not Found')
                     | (chunk['pr_commits_cnt'] == 'Not Found')
                 ].index)
+            chunk = chunk[
+                    (chunk['comment_html_url'] != 'Not Found')
+                    & (chunk['pr_commits_cnt'] != 'Not Found')
+                ]
+            
             skip_ctr += chunk_size - chunk.shape[0]
             
             if chunk.shape[0] > 0:
