@@ -1,5 +1,4 @@
 import logging
-import pandas
 import requests
 import requests_cache
 
@@ -59,20 +58,20 @@ class GitHubPullRequestHelper:
         status_code, json = self.__invoke(url)
 
         if status_code == 200:
-            return pandas.Series([
+            return [
                 json['comments'],
                 json['review_comments'],
                 json['commits'],
                 json['additions'],
                 json['deletions'],
                 json['changed_files'],
-                json['merged_by'].get('id') if json.get('merged_by') != None else 'Not Available']
-            )
+                json['merged_by'].get('id') if json.get('merged_by') != None else 'Not Available'
+            ]
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_info(project_url, pull_number)
         elif status_code == 404:
-            return pandas.Series(['Not Found'] * 7)
+            return ['Not Found'] * 7
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number)
@@ -104,7 +103,7 @@ class GitHubPullRequestHelper:
         status_code, comment = self.__invoke(url)
 
         if status_code == 200:
-            commit_file_series = pandas.Series(['Not Available'] * 5)
+            commit_file_series = ['Not Available'] * 5
 
             try:
                 commit_file_series = self.get_commit_file_for_comment(
@@ -119,18 +118,18 @@ class GitHubPullRequestHelper:
                     self.logger.warn(
                         f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}, commit count: {e.args[4]}')
 
-            result = pandas.Series([
+            result = [
                 comment['author_association'],
                 comment['updated_at'],
                 comment['html_url']
-            ])
+            ]
             return result.append(commit_file_series, ignore_index=True)
         elif status_code == 403:
             # Recursive call with the new token.
             return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
         elif status_code == 404:
             self.logger.warn(f'Pull request comment not found: {url}.')
-            return pandas.Series(['Not Found'] * 5)
+            return ['Not Found'] * 5
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number, comment_id)
@@ -194,13 +193,13 @@ class GitHubPullRequestHelper:
                         if commit_file == None:
                             continue  # Move on to earlier commit.
                         else:
-                            return pandas.Series([
+                            return [
                                 original_commit_idx,
                                 commit_file['status'],
                                 commit_file['additions'],
                                 commit_file['deletions'],
                                 commit_file['changes']
-                            ])
+                            ]
                     elif status_code == 403:
                         # Recursive call with the new token.
                         return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
