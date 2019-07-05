@@ -64,9 +64,9 @@ class BigQueryCsvFileProcessor:
         total_rows = data_frame.shape[0]
         self.logger.info(f'No. of rows in {csv_file}: {total_rows}')
 
-        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = 0
+        ctr = truncated_ctr = del_from_mongo_ctr = del_from_github_ctr = non_eng_ctr = skip_ctr = 0        
+        
         tmp_stats_df = None
-
         if tmp_csv.exists():
             tmp_total_rows = pandas.read_csv(tmp_csv).shape[0]
             tmp_stats_df = pandas.read_csv(tmp_stats_csv)
@@ -98,7 +98,10 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df = pandas.DataFrame(
                 data=dict([(key, pandas.Series(value)) for key, value in stats.items()]))
 
+        # Set up before the loop
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
+        commentExecutor = ThreadPoolExecutor(max_workers=30, thread_name_prefix='CommentLoader')       
+
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
             csv_file, chunksize=5000, converters={'body': str}, skiprows=range(1, ctr + 1))
@@ -136,31 +139,28 @@ class BigQueryCsvFileProcessor:
                 for url in project_urls_gen_exp
             ]
 
-            tqdm.pandas(desc='Load comment', leave=False)
             # Loading comment from MongoDB has a lot of IO waits, use threading.
-            with ThreadPoolExecutor(max_workers=30, thread_name_prefix='CommentLoader') as executor:
-                chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(tqdm(
-                    executor.map(
-                        self.comment_loader.load,
-                        chunk[chunk['is_truncated'] == True]['owner'],
-                        chunk[chunk['is_truncated'] == True]['repo'],
-                        chunk[chunk['is_truncated'] == True]['pullreq_id'],
-                        chunk[chunk['is_truncated'] == True]['comment_id'],
-                        timeout=600
-                    )
-                ))
+            chunk.loc[chunk['is_truncated'] == True, 'comment'] = list(tqdm(
+                commentExecutor.map(
+                    self.comment_loader.load,
+                    chunk[chunk['is_truncated'] == True]['owner'],
+                    chunk[chunk['is_truncated'] == True]['repo'],
+                    chunk[chunk['is_truncated'] == True]['pullreq_id'],
+                    chunk[chunk['is_truncated'] == True]['comment_id'],
+                    timeout=600
+                ),
+                desc='Load comment', 
+                leave=False
+            ))
 
-            pr = cProfile.Profile()
-            pr.enable()
+            # pr = cProfile.Profile()
+            # pr.enable()
 
 
 
-            pr.disable()
-            pstats.Stats(pr).strip_dirs().sort_stats(
-                pstats.SortKey.CUMULATIVE).print_stats(50)
-
-            # # Comment may have been deleted from GitHub, skip the row for further processing.
-            # is_deleted = False if comment is not None else True
+            # pr.disable()
+            # pstats.Stats(pr).strip_dirs().sort_stats(
+            #     pstats.SortKey.CUMULATIVE).print_stats(50)
 
             # Process comments.
             # Register `pandas.progress_apply` with `tqdm`.
@@ -254,7 +254,9 @@ class BigQueryCsvFileProcessor:
             pbar.write(
                 f'Comment truncated: {truncated_ctr}, non English: {non_eng_ctr}, deleted from MongoDB/GitHub: {del_from_mongo_ctr}/{del_from_github_ctr}, total skipped: {skip_ctr}')
 
+        # Clean up after the loop
         pbar.close()
+        commentExecutor.shutdown()
 
         # tmp_csv.rename(final_csv)
         # tmp_stats_csv.rename(final_stats_csv)
