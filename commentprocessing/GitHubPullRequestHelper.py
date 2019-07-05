@@ -27,7 +27,7 @@ class GitHubPullRequestHelper:
             cache_name=requests_cache_file,
             backend='sqlite',
             expire_after=None,
-            allowable_codes={200})
+            allowable_codes={200, 404})
 
         if self.token_idx != float('NaN'):
             token = personal_access_tokens[self.token_idx]
