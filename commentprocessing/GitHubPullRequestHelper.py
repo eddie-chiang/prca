@@ -1,6 +1,7 @@
 import logging
 import requests
 import requests_cache
+import time
 
 
 class GitHubPullRequestHelper:
@@ -15,12 +16,6 @@ class GitHubPullRequestHelper:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.personal_access_tokens = personal_access_tokens
 
-        self.token_idx = float('NaN')
-        for i, token in enumerate(personal_access_tokens):
-            if token != None:
-                self.token_idx = i
-                break
-
         # Set up request cache, to minimize the long lived chance of hitting GitHub API's rate limit, i.e. 5000 requests per hour per token.
         # And use a session for connection pooling.
         self.session = requests_cache.CachedSession(
@@ -29,9 +24,13 @@ class GitHubPullRequestHelper:
             expire_after=None,
             allowable_codes={200, 404})
 
-        if self.token_idx != float('NaN'):
-            token = personal_access_tokens[self.token_idx]
-            self.session.headers.update({'Authorization': 'token ' + token})
+        self.token_idx = float('NaN')
+        for i, token in enumerate(personal_access_tokens):
+            if token != None:
+                self.token_idx = i
+                self.session.headers.update(
+                    {'Authorization': 'token ' + token})
+                break
 
     def get_pull_request_info(self, project_url: str, pull_number: int):
         """Returns pull request comment related information.
@@ -65,11 +64,9 @@ class GitHubPullRequestHelper:
                 json['additions'],
                 json['deletions'],
                 json['changed_files'],
-                json['merged_by'].get('id') if json.get('merged_by') != None else 'Not Available'
+                json['merged_by'].get('id') if json.get(
+                    'merged_by') != None else 'Not Available'
             ]
-        elif status_code == 403:
-            # Recursive call with the new token.
-            return self.get_pull_request_info(project_url, pull_number)
         elif status_code == 404:
             return ['Not Found'] * 7
 
@@ -125,9 +122,6 @@ class GitHubPullRequestHelper:
             ]
             result.extend(commit_file_series)
             return result
-        elif status_code == 403:
-            # Recursive call with the new token.
-            return self.get_pull_request_comment_info(project_url, pull_number, comment_id)
         elif status_code == 404:
             self.logger.warn(f'Pull request comment not found: {url}.')
             return ['Not Found'] * 8
@@ -201,28 +195,29 @@ class GitHubPullRequestHelper:
                                 commit_file['deletions'],
                                 commit_file['changes']
                             ]
-                    elif status_code == 403:
-                        # Recursive call with the new token.
-                        return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
 
             raise ValueError(
-                'Cannot find the pertaining commit or file', url, filename, original_commit_id, commits_cnt)
-        elif status_code == 403:
-            # Recursive call with the new token.
-            return self.get_commit_file_for_comment(project_url, pull_number, filename, original_commit_id)
+                'Related commit or file not found.', url, filename, original_commit_id, commits_cnt)
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number, filename, original_commit_id)
 
     def __invoke(self, url: str):
-        resp = self.session.get(url)
+        try:
+            resp = self.session.get(url)
+            json = resp.json()
+        except:
+            self.logger.exception(f'Failed to load from {url}.')
+            raise
 
         if resp.status_code == 200:
-            return resp.status_code, resp.json()
-        elif resp.status_code == 403 and resp.json()['message'].startswith('API rate limit exceeded'):
+            return resp.status_code, json
+        elif resp.status_code == 403 and json['message'].startswith('API rate limit exceeded'):
             token = self.session.headers['Authorization']
+
             self.logger.warn(
                 f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
+
             self.token_idx, token = self.__next_token_idx(
                 self.personal_access_tokens, self.token_idx)
 
@@ -230,12 +225,20 @@ class GitHubPullRequestHelper:
                 self.session.headers.update(
                     {'Authorization': 'token ' + token})
 
-            return resp.status_code, None
+            # Recursive call with the new token.
+            return self.__invoke(url)
         elif resp.status_code == 404:
             return resp.status_code, None
+        elif resp.status_code == 502:
+            self.logger.warn(
+                f'Failed to load from {url}, HTTP code: {resp.status_code}, response: {json}, retry in 5 seconds...')
+            time.sleep(5)
+
+            # Recursive to retry.
+            return self.__invoke(url)
         else:
             raise Exception(
-                f'Failed to load from {url}, HTTP code: {resp.status_code}, response: {resp.json()}')
+                f'Failed to load from {url}, HTTP code: {resp.status_code}, response: {json}')
 
     def __next_token_idx(self, tokens: list, ptr: int):
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
