@@ -278,7 +278,7 @@ class BigQueryCsvFileProcessor:
             thread_name_prefix='GitHubPullRequestHelper')
 
         # Skip any previously processed rows, but do not skip the header.
-        data_frame = pandas.read_csv(processed_csv_file, chunksize=100, converters={
+        data_frame = pandas.read_csv(processed_csv_file, chunksize=500, converters={
                                      'body': str}, skiprows=range(1, ctr + 1))
         for chunk in data_frame:
             # Add any missing columns
