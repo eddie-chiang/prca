@@ -110,10 +110,15 @@ class GitHubPullRequestHelper:
                     comment['original_commit_id']
                 )
             except ValueError as e:
-                if e.args[4] == 250:
-                    # GitHub API can only list a maximum of 250 commits: https://developer.github.com/v3/pulls/#list-commits-on-a-pull-request.
-                    self.logger.warn(
-                        f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}, commit count: {e.args[4]}')
+                try:
+                    if e.args[4] == 250:
+                        # GitHub API can only list a maximum of 250 commits: https://developer.github.com/v3/pulls/#list-commits-on-a-pull-request.
+                        self.logger.warn(
+                            f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}, commit count: {e.args[4]}')
+                except IndexError:
+                    self.logger.exception(
+                        f'Unknown error while finding commit or file for comment: {url}.')
+                    raise e  # Some other error, reraise.
 
             result = [
                 comment['author_association'],
