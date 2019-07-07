@@ -121,7 +121,9 @@ class BigQueryCsvFileProcessor:
             # Identify possible truncated comments and load from GHTorrent MongoDB.
             chunk['is_truncated'] = numpy.char.str_len(
                 chunk['body'].to_numpy(dtype=str)) == 255
-            truncated_ctr += len(chunk[chunk['is_truncated'] == True].index)
+            truncated_ctr_in_loop = len(
+                chunk[chunk['is_truncated'] == True].index)
+            truncated_ctr += truncated_ctr_in_loop
 
             # https://api.github.com/repos/{owner}/{repo}
             chunk.loc[chunk['is_truncated'] == True, 'owner'] = [
@@ -145,6 +147,7 @@ class BigQueryCsvFileProcessor:
                     timeout=600
                 ),
                 desc='Load comment',
+                total=truncated_ctr_in_loop,
                 leave=False
             ))
 
@@ -193,7 +196,7 @@ class BigQueryCsvFileProcessor:
                     else ['Not Available'] * 8,
                 axis='columns',
                 result_type='expand')
-            
+
             # Filter out records not found from GitHub.
             del_from_github_ctr += len(
                 chunk[
@@ -201,19 +204,19 @@ class BigQueryCsvFileProcessor:
                     | (chunk['pr_commits_cnt'] == 'Not Found')
                 ].index)
             chunk = chunk[
-                    (chunk['comment_html_url'] != 'Not Found')
-                    & (chunk['pr_commits_cnt'] != 'Not Found')
-                ]
-            
+                (chunk['comment_html_url'] != 'Not Found')
+                & (chunk['pr_commits_cnt'] != 'Not Found')
+            ]
+
             skip_ctr += chunk_size - chunk.shape[0]
-            
+
             if chunk.shape[0] > 0:
                 tqdm.pandas(desc='Dialogue Act Classification', leave=False)
                 chunk['dialogue_act_classification_ml'] = chunk.progress_apply(
                     lambda row:
                         self.dac_classifier.classify(row['body']),
                     axis=1)
-            
+
                 chunk.to_csv(tmp_csv,
                              index=False,
                              header=False if ctr > 0 else True,
