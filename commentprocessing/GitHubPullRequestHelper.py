@@ -183,16 +183,14 @@ class GitHubPullRequestHelper:
                     commit_url = project_url + '/commits/' + commit['sha']
                     status_code, commit = self.__invoke(commit_url)
 
-                    if status_code == 200:
+                    if status_code == 200 and commit.get('files') != None:
                         # Find the file committed.
                         commit_file = next(iter(
                             [f for f in commit['files']
                              if f['filename'] == filename]
                         ), None)
 
-                        if commit_file == None:
-                            continue  # Move on to earlier commit.
-                        else:
+                        if commit_file != None:
                             return [
                                 original_commit_idx,
                                 commit_file['status'],
@@ -200,6 +198,7 @@ class GitHubPullRequestHelper:
                                 commit_file['deletions'],
                                 commit_file['changes']
                             ]
+                        # Else move on to earlier commit.
 
             raise ValueError(
                 'Related commit or file not found.', url, filename, original_commit_id, commits_cnt)
