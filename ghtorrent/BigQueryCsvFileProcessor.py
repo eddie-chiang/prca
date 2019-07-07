@@ -217,6 +217,7 @@ class BigQueryCsvFileProcessor:
                         self.dac_classifier.classify(row['body']),
                     axis=1)
 
+                pbar.write(f'Writing to {tmp_csv}')
                 chunk.to_csv(tmp_csv,
                              index=False,
                              header=False if ctr > 0 else True,
@@ -231,6 +232,8 @@ class BigQueryCsvFileProcessor:
             tmp_stats_df['deleted_from_mongodb'].iat[0] = del_from_mongo_ctr
             tmp_stats_df['deleted_from_github'].iat[0] = del_from_github_ctr
             tmp_stats_df['total_skipped'].iat[0] = skip_ctr
+
+            pbar.write(f'Writing to {tmp_stats_csv}')
             tmp_stats_df.to_csv(tmp_stats_csv,
                                 index=False, header=True, mode='w')
 
