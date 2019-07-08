@@ -220,13 +220,17 @@ class GitHubPullRequestHelper:
             token = self.session.headers['Authorization']
 
             if json['message'].startswith('API rate limit exceeded'):
-                reset = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(header['X-RateLimit-Reset'])))
-                self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, reset: {reset}, retrying with the next token...')
+                reset = time.strftime(
+                    '%Y-%m-%d %H:%M:%S', time.localtime(int(header['X-RateLimit-Reset'])))
+                self.logger.warn(
+                    f'API rate limit exceeded, {token}, index: {self.token_idx}, reset: {reset}, retrying with the next token...')
             elif json['message'].startswith('You have triggered an abuse detection mechanism'):
                 retry_after = int(header['Retry-After'])
-                self.logger.warn(f'Triggered abuse detection, {token}, index: {self.token_idx}, retry after: {retry_after}, retrying with the next token instead...')
+                self.logger.warn(
+                    f'Triggered abuse detection, {token}, index: {self.token_idx}, retry after: {retry_after}, retrying with the next token instead...')
             else:
-                raise Exception(f'Unknown HTTP 403 error, from {url}, header: {header} response: {json}')
+                raise Exception(
+                    f'Unknown HTTP 403 error, from {url}, header: {header} response: {json}')
 
             self.token_idx, token = self.__next_token_idx(
                 self.personal_access_tokens, self.token_idx)
@@ -246,8 +250,9 @@ class GitHubPullRequestHelper:
 
             # Recursive to retry.
             return self.__invoke(url)
-        
-        raise Exception(f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}')
+
+        raise Exception(
+            f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}')
 
     def __next_token_idx(self, tokens: list, ptr: int):
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
