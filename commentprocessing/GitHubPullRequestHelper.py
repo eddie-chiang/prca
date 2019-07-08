@@ -220,7 +220,7 @@ class GitHubPullRequestHelper:
             token = self.session.headers['Authorization']
 
             if json['message'].startswith('API rate limit exceeded'):
-                reset = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(header['X-RateLimit-Reset']))
+                reset = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(header['X-RateLimit-Reset'])))
                 self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, reset: {reset}, retrying with the next token...')
             elif json['message'].startswith('You have triggered an abuse detection mechanism'):
                 retry_after = int(header['Retry-After'])
