@@ -112,5 +112,8 @@ config.workspace.yaml
 # Visual Studio Code generated files
 .vscode
 
-# Ignore requests_cache files.
+# requests_cache files.
 data/github_cache.sqlite
+
+# macOS system generated files.
+.DS_Store
