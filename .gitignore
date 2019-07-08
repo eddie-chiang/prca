@@ -117,3 +117,6 @@ data/github_cache.sqlite
 
 # macOS system generated files.
 .DS_Store
+
+# Sample output files.
+data/sample/ghtorrent_bigquery_result_*.csv
