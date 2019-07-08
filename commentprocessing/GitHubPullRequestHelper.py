@@ -128,7 +128,6 @@ class GitHubPullRequestHelper:
             result.extend(commit_file_series)
             return result
         elif status_code == 404:
-            self.logger.warn(f'Pull request comment not found: {url}.')
             return ['Not Found'] * 8
 
         raise RuntimeError(
