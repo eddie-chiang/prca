@@ -96,9 +96,9 @@ class BigQueryCsvFileProcessor:
         # Set up before the loop
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         commentExecutor = ThreadPoolExecutor(
-            max_workers=20, thread_name_prefix='CommentLoader')
+            max_workers=10, thread_name_prefix='CommentLoader')
         gitHubExecutor = ThreadPoolExecutor(
-            thread_name_prefix='GitHubPullRequestHelper')
+            max_workers=4, thread_name_prefix='GitHubPullRequestHelper')
 
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(
@@ -160,42 +160,45 @@ class BigQueryCsvFileProcessor:
             chunk.drop(columns='owner', inplace=True)
             chunk.drop(columns='repo', inplace=True)
 
-            tqdm.pandas(desc='Load pull request', leave=False)
             chunk[['pr_comments_cnt',
                    'pr_review_comments_cnt',
                    'pr_commits_cnt',
                    'pr_additions',
                    'pr_deletions',
                    'pr_changed_files',
-                   'pr_merged_by_user_id']] = chunk.progress_apply(
-                lambda row:
-                list(gitHubExecutor.map(
-                    self.__get_pull_request_info,
-                    [row],
-                    timeout=600
-                ))[0],
-                axis='columns',
-                result_type='expand')
+                   'pr_merged_by_user_id']] = list(tqdm(
+                       gitHubExecutor.map(
+                           self.github_helper.get_pull_request_info,
+                           chunk['project_url'],
+                           chunk['pullreq_id'],
+                           timeout=600
+                       ),
+                       desc='Load pull request',
+                       total=chunk.shape[0],
+                       leave=False
+                   ))
 
-            tqdm.pandas(desc='Load commit info', leave=False)
-            chunk[['comment_author_association',
-                   'comment_updated_at',
-                   'comment_html_url',
-                   'pr_commits_cnt_prior_to_comment',
-                   'commit_file_status',
-                   'commit_file_additions',
-                   'commit_file_deletions',
-                   'commit_file_changes']] = chunk.progress_apply(
-                lambda row:
-                    list(gitHubExecutor.map(
-                        self.__get_comment_info,
-                        [row],
-                        timeout=600
-                    ))[0]
-                    if row['pr_commits_cnt'] not in ['Not Available', 'Not Found']
-                    else ['Not Available'] * 8,
-                axis='columns',
-                result_type='expand')
+            # For ones which Pull Request is not found/available, mark commit info as 'Not Available'.
+            chunk.loc[
+                chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']),
+                [
+                    'comment_author_association',
+                    'comment_updated_at',
+                    'comment_html_url',
+                    'pr_commits_cnt_prior_to_comment',
+                    'commit_file_status',
+                    'commit_file_additions',
+                    'commit_file_deletions',
+                    'commit_file_changes'
+                ]
+            ] = ['Not Available'] * 8
+
+            # Load commit info.
+            chunk = self.__get_comment_info(
+                chunk,
+                gitHubExecutor,
+                (~chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']))
+            )
 
             # Filter out records not found from GitHub.
             del_from_github_ctr += len(
@@ -281,7 +284,7 @@ class BigQueryCsvFileProcessor:
          # Set up before the loop
         pbar = tqdm(desc='Process CSV', total=total_rows, initial=ctr)
         gitHubExecutor = ThreadPoolExecutor(
-            thread_name_prefix='GitHubPullRequestHelper')
+            max_workers=4, thread_name_prefix='GitHubPullRequestHelper')
 
         # Skip any previously processed rows, but do not skip the header.
         data_frame = pandas.read_csv(processed_csv_file, chunksize=500, converters={
@@ -290,42 +293,62 @@ class BigQueryCsvFileProcessor:
             # Add any missing columns
             chunk = self.__get_header_fields(chunk)
 
-            tqdm.pandas(desc='Load pull request', leave=False)
-            chunk[['pr_comments_cnt',
-                   'pr_review_comments_cnt',
-                   'pr_commits_cnt',
-                   'pr_additions',
-                   'pr_deletions',
-                   'pr_changed_files',
-                   'pr_merged_by_user_id']] = chunk.progress_apply(
-                lambda row:
-                list(gitHubExecutor.map(
-                    self.__get_pull_request_info,
-                    [row],
-                    timeout=600
-                ))[0],
-                axis='columns',
-                result_type='expand')
+            # Load pull request
+            pr_to_load_gen_exp = (
+                (chunk['pr_comments_cnt'].isna())
+                | (chunk['pr_review_comments_cnt'].isna())
+                | (chunk['pr_commits_cnt'].isna())
+                | (chunk['pr_additions'].isna())
+                | (chunk['pr_deletions'].isna())
+                | (chunk['pr_changed_files'].isna())
+                | (chunk['pr_merged_by_user_id'].isna())
+            )
 
-            tqdm.pandas(desc='Load commit info', leave=False)
-            chunk[['comment_author_association',
-                   'comment_updated_at',
-                   'comment_html_url',
-                   'pr_commits_cnt_prior_to_comment',
-                   'commit_file_status',
-                   'commit_file_additions',
-                   'commit_file_deletions',
-                   'commit_file_changes']] = chunk.progress_apply(
-                lambda row:
-                    list(gitHubExecutor.map(
-                        self.__get_comment_info,
-                        [row],
+            if chunk[pr_to_load_gen_exp].shape[0] > 0:
+                chunk.loc[
+                    pr_to_load_gen_exp,
+                    [
+                        'pr_comments_cnt',
+                        'pr_review_comments_cnt',
+                        'pr_commits_cnt',
+                        'pr_additions',
+                        'pr_deletions',
+                        'pr_changed_files',
+                        'pr_merged_by_user_id'
+                    ]
+                ] = list(tqdm(
+                    gitHubExecutor.map(
+                        self.github_helper.get_pull_request_info,
+                        chunk[pr_to_load_gen_exp]['project_url'],
+                        chunk[pr_to_load_gen_exp]['pullreq_id'],
                         timeout=600
-                    ))[0]
-                    if row['pr_commits_cnt'] not in ['Not Available', 'Not Found']
-                    else ['Not Available'] * 8,
-                axis='columns',
-                result_type='expand')
+                    ),
+                    desc='Load pull request',
+                    total=chunk[pr_to_load_gen_exp].shape[0],
+                    leave=False
+                ))
+
+            # Load commit info
+            commit_info_to_load = (
+                (
+                    (chunk['comment_author_association'].isna())
+                    | (chunk['comment_updated_at'].isna())
+                    | (chunk['comment_html_url'].isna())
+                    | (chunk['pr_commits_cnt_prior_to_comment'].isna())
+                    | (chunk['commit_file_status'].isna())
+                    | (chunk['commit_file_additions'].isna())
+                    | (chunk['commit_file_deletions'].isna())
+                    | (chunk['commit_file_changes'].isna())
+                )
+                & ~chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found'])
+            )
+
+            if chunk[commit_info_to_load].shape[0] > 0:
+                chunk = self.__get_comment_info(
+                    chunk,
+                    gitHubExecutor,
+                    commit_info_to_load
+                )
 
             chunk.to_csv(tmp_csv,
                          index=False,
@@ -390,53 +413,46 @@ class BigQueryCsvFileProcessor:
 
         return df
 
-    def __get_comment_info(self, row):
-        if (pandas.isna(row['comment_author_association'])
-            or pandas.isna(row['comment_updated_at'])
-            or pandas.isna(row['comment_html_url'])
-            or pandas.isna(row['pr_commits_cnt_prior_to_comment'])
-            or pandas.isna(row['commit_file_status'])
-            or pandas.isna(row['commit_file_additions'])
-            or pandas.isna(row['commit_file_deletions'])
-                or pandas.isna(row['commit_file_changes'])):
-            # Retrieve from GitHub any missing info.
-            return self.github_helper.get_pull_request_comment_info(
-                row['project_url'],
-                row['pullreq_id'],
-                row['comment_id'])
-        else:
-            # Return the original info.
-            return [
-                row['comment_author_association'],
-                row['comment_updated_at'],
-                row['comment_html_url'],
-                row['pr_commits_cnt_prior_to_comment'],
-                row['commit_file_status'],
-                row['commit_file_additions'],
-                row['commit_file_deletions'],
-                row['commit_file_changes']
+    def __get_comment_info(self, chunk: pandas.DataFrame, gitHubExecutor: ThreadPoolExecutor, filter_gen_exp):
+        # For ones which Pull Request is not found/available, mark commit info as 'Not Available'.
+        chunk.loc[
+            chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']),
+            [
+                'comment_author_association',
+                'comment_updated_at',
+                'comment_html_url',
+                'pr_commits_cnt_prior_to_comment',
+                'commit_file_status',
+                'commit_file_additions',
+                'commit_file_deletions',
+                'commit_file_changes'
             ]
+        ] = ['Not Available'] * 8
 
-    def __get_pull_request_info(self, row):
-        if (pandas.isna(row['pr_comments_cnt'])
-            or pandas.isna(row['pr_review_comments_cnt'])
-            or pandas.isna(row['pr_commits_cnt'])
-            or pandas.isna(row['pr_additions'])
-            or pandas.isna(row['pr_deletions'])
-            or pandas.isna(row['pr_changed_files'])
-                or pandas.isna(row['pr_merged_by_user_id'])):
-            # Retrieve from GitHub any missing info.
-            return self.github_helper.get_pull_request_info(
-                row['project_url'],
-                row['pullreq_id'])
-        else:
-            # Return the original info.
-            return [
-                row['pr_comments_cnt'],
-                row['pr_review_comments_cnt'],
-                row['pr_commits_cnt'],
-                row['pr_additions'],
-                row['pr_deletions'],
-                row['pr_changed_files'],
-                row['pr_merged_by_user_id']
+        # Find the commit info, filtered by the given condition.
+        chunk.loc[
+            filter_gen_exp,
+            [
+                'comment_author_association',
+                'comment_updated_at',
+                'comment_html_url',
+                'pr_commits_cnt_prior_to_comment',
+                'commit_file_status',
+                'commit_file_additions',
+                'commit_file_deletions',
+                'commit_file_changes'
             ]
+        ] = list(tqdm(
+            gitHubExecutor.map(
+                self.github_helper.get_pull_request_comment_info,
+                chunk.loc[filter_gen_exp, 'project_url'],
+                chunk.loc[filter_gen_exp, 'pullreq_id'],
+                chunk.loc[filter_gen_exp, 'comment_id'],
+                timeout=600
+            ),
+            desc='Load commit info',
+            total=chunk[filter_gen_exp].shape[0],
+            leave=False
+        ))
+
+        return chunk
