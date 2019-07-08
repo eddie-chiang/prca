@@ -111,3 +111,6 @@ config.workspace.yaml
 
 # Visual Studio Code generated files
 .vscode
+
+# Ignore log files.
+./data/pullrequestcommentanalyzer.log
