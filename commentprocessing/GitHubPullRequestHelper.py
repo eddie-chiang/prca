@@ -209,7 +209,7 @@ class GitHubPullRequestHelper:
         try:
             resp = self.session.get(url)
             json = resp.json()
-            header = resp.headers()
+            header = resp.headers
         except:
             self.logger.exception(f'Failed to load from {url}.')
             raise
