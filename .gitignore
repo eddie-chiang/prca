@@ -112,5 +112,5 @@ config.workspace.yaml
 # Visual Studio Code generated files
 .vscode
 
-# Ignore log files.
-./data/pullrequestcommentanalyzer.log
+# Ignore requests_cache files.
+data/github_cache.sqlite
