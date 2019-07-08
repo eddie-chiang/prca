@@ -21,9 +21,8 @@ from playsound import playsound
 
 def main():
     cfg = confuse.LazyConfig('pullrequestcommentanalyzer', __name__)
-    cfg.set_file('./pullrequestcommentanalyzer/config.yaml')
-    # Override config for the workspace.
-    cfg.set_file('./pullrequestcommentanalyzer/config.workspace.yaml')
+    # Add overrides on top of config.yaml for the workspace.
+    cfg.set_file('./config.workspace.yaml')
 
     # Setting up logging.
     logging.basicConfig(
