@@ -209,17 +209,24 @@ class GitHubPullRequestHelper:
         try:
             resp = self.session.get(url)
             json = resp.json()
+            header = resp.headers()
         except:
             self.logger.exception(f'Failed to load from {url}.')
             raise
 
         if resp.status_code == 200:
             return resp.status_code, json
-        elif resp.status_code == 403 and json['message'].startswith('API rate limit exceeded'):
+        elif resp.status_code == 403:
             token = self.session.headers['Authorization']
 
-            self.logger.warn(
-                f'API rate limit exceeded, {token}, index: {self.token_idx}, retrying with the next token...')
+            if json['message'].startswith('API rate limit exceeded'):
+                reset = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(header['X-RateLimit-Reset']))
+                self.logger.warn(f'API rate limit exceeded, {token}, index: {self.token_idx}, reset: {reset}, retrying with the next token...')
+            elif json['message'].startswith('You have triggered an abuse detection mechanism'):
+                retry_after = int(header['Retry-After'])
+                self.logger.warn(f'Triggered abuse detection, {token}, index: {self.token_idx}, retry after: {retry_after}, retrying with the next token instead...')
+            else:
+                raise Exception(f'Unknown HTTP 403 error, from {url}, header: {header} response: {json}')
 
             self.token_idx, token = self.__next_token_idx(
                 self.personal_access_tokens, self.token_idx)
@@ -234,14 +241,13 @@ class GitHubPullRequestHelper:
             return resp.status_code, None
         elif resp.status_code == 502:
             self.logger.warn(
-                f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {resp.headers} response: {json}, retry in 5 seconds...')
+                f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}, retry in 5 seconds...')
             time.sleep(5)
 
             # Recursive to retry.
             return self.__invoke(url)
-        else:
-            raise Exception(
-                f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {resp.headers} response: {json}')
+        
+        raise Exception(f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}')
 
     def __next_token_idx(self, tokens: list, ptr: int):
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
