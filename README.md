@@ -1,4 +1,12 @@
 # Set up
+
+## Set up [Git Large File Storage](https://git-lfs.github.com/)
+1. Install git-lfs: https://github.com/git-lfs/git-lfs/wiki/Installation
+2. Initialize Git LFS and its respective hooks in this repo:
+```bash
+git lfs install
+```
+
 ## Set up a [virtual environment](https://docs.python.org/3.6/library/venv.html#module-venv)
 On macOS and Linux:
 ```bash
