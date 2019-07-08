@@ -108,3 +108,6 @@ venv.bak/
 
 # Environment specific config file.
 config.workspace.yaml
+
+# Visual Studio Code generated files
+.vscode
