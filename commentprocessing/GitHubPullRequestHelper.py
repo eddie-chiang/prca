@@ -256,7 +256,7 @@ class GitHubPullRequestHelper:
             return self.__invoke(url)
 
         raise Exception(
-            f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}')
+            f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {headers} response: {json}')
 
     def __next_token_idx(self, tokens: list, ptr: int):
         index = ptr + 1 if ptr + 1 < len(tokens) else 0
