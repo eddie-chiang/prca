@@ -209,35 +209,40 @@ class GitHubPullRequestHelper:
         try:
             resp = self.session.get(url)
             json = resp.json()
-            header = resp.headers
+            headers = resp.headers
         except:
             self.logger.exception(f'Failed to load from {url}.')
             raise
 
         if resp.status_code == 200:
+            limit = int(headers['X-RateLimit-Limit'])
+            remaining = int(headers['X-RateLimit-Remaining'])
+            if limit - remaining < 50:
+                token = self.session.headers['Authorization']
+                self.logger.warn(
+                    f'API rate limit approaching, {token}, index: {self.token_idx}, limit: {limit}, remaining: {remaining}, moving with the next token...')
+                self.token_idx, self.session = self.__next_token(
+                    self.personal_access_tokens, self.token_idx, self.session)
+
             return resp.status_code, json
         elif resp.status_code == 403:
             token = self.session.headers['Authorization']
 
             if json['message'].startswith('API rate limit exceeded'):
                 reset = time.strftime(
-                    '%Y-%m-%d %H:%M:%S', time.localtime(int(header['X-RateLimit-Reset'])))
+                    '%Y-%m-%d %H:%M:%S', time.localtime(int(headers['X-RateLimit-Reset'])))
                 self.logger.warn(
                     f'API rate limit exceeded, {token}, index: {self.token_idx}, reset: {reset}, retrying with the next token...')
             elif json['message'].startswith('You have triggered an abuse detection mechanism'):
-                retry_after = int(header['Retry-After'])
+                retry_after = int(headers['Retry-After'])
                 self.logger.warn(
                     f'Triggered abuse detection, {token}, index: {self.token_idx}, retry after: {retry_after}, retrying with the next token instead...')
             else:
                 raise Exception(
-                    f'Unknown HTTP 403 error, from {url}, header: {header} response: {json}')
+                    f'Unknown HTTP 403 error, from {url}, headers: {headers} response: {json}')
 
-            self.token_idx, token = self.__next_token_idx(
-                self.personal_access_tokens, self.token_idx)
-
-            if self.token_idx != float('NaN'):
-                self.session.headers.update(
-                    {'Authorization': 'token ' + token})
+            self.token_idx, self.session = self.__next_token(
+                self.personal_access_tokens, self.token_idx, self.session)
 
             # Recursive call with the new token.
             return self.__invoke(url)
@@ -245,7 +250,7 @@ class GitHubPullRequestHelper:
             return resp.status_code, None
         elif resp.status_code == 502:
             self.logger.warn(
-                f'Failed to load from {url}, HTTP code: {resp.status_code}, header: {header} response: {json}, retry in 5 seconds...')
+                f'Failed to load from {url}, HTTP code: {resp.status_code}, headers: {headers} response: {json}, retry in 5 seconds...')
             time.sleep(5)
 
             # Recursive to retry.
@@ -261,3 +266,11 @@ class GitHubPullRequestHelper:
                 return i, token
 
         return float('NaN'), None
+
+    def __next_token(self, tokens: list, token_idx: int, session: requests.Session):
+        token_idx, token = self.__next_token_idx(tokens, token_idx)
+
+        if token_idx != float('NaN'):
+            session.headers.update({'Authorization': 'token ' + token})
+
+        return token_idx, session
