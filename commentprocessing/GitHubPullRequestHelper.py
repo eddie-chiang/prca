@@ -219,7 +219,7 @@ class GitHubPullRequestHelper:
             if remaining < 50:
                 token = self.session.headers['Authorization']
                 self.logger.warn(
-                    f'API rate limit approaching, {token}, index: {self.token_idx}, remaining: {remaining}, moving with the next token...')
+                    f'API rate limit remaining: {remaining}, {token}, index: {self.token_idx}, moving to the next token...')
                 self.token_idx, self.session = self.__next_token(
                     self.personal_access_tokens, self.token_idx, self.session)
 
