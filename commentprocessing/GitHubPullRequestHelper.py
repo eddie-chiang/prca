@@ -125,12 +125,14 @@ class GitHubPullRequestHelper:
 
             result = [
                 comment['author_association'],
-                comment['user']['login'],
+                comment['user'].get('login') if comment.get(
+                    'user') != None else 'Not Available',
                 comment['updated_at'],
                 comment['html_url']
             ]
             result.extend(commit_file_series)
             return result
+
         elif status_code == 404:
             return ['Not Found'] * 9
 
