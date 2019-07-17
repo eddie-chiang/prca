@@ -222,7 +222,7 @@ class GitHubPullRequestHelper:
 
         if resp.status_code == 200:
             remaining = int(headers['X-RateLimit-Remaining'])
-            if remaining < 50:
+            if remaining < 50 and not resp.from_cache:
                 token = self.session.headers['Authorization']
                 self.logger.warn(
                     f'API rate limit remaining: {remaining}, {token}, index: {self.token_idx}, moving to the next token...')
