@@ -50,6 +50,7 @@ class GitHubPullRequestHelper:
                 pr_additions,
                 pr_deletions,
                 pr_changed_files,
+                pr_user_login,
                 pr_merged_by_user_id
             ]
         """
@@ -64,11 +65,12 @@ class GitHubPullRequestHelper:
                 json['additions'],
                 json['deletions'],
                 json['changed_files'],
+                json['user']['login'],
                 json['merged_by'].get('id') if json.get(
                     'merged_by') != None else 'Not Available'
             ]
         elif status_code == 404:
-            return ['Not Found'] * 7
+            return ['Not Found'] * 8
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number)
@@ -87,6 +89,7 @@ class GitHubPullRequestHelper:
         Returns:
             Series: [
                 author_association,
+                comment_user_login,
                 updated_at,
                 html_url,
                 pr_commits_cnt_prior_to_comment,
@@ -122,13 +125,14 @@ class GitHubPullRequestHelper:
 
             result = [
                 comment['author_association'],
+                comment['user']['login'],
                 comment['updated_at'],
                 comment['html_url']
             ]
             result.extend(commit_file_series)
             return result
         elif status_code == 404:
-            return ['Not Found'] * 8
+            return ['Not Found'] * 9
 
         raise RuntimeError(
             'Unknown error occurred.', project_url, pull_number, comment_id)

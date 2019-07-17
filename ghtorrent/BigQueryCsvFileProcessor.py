@@ -160,12 +160,16 @@ class BigQueryCsvFileProcessor:
             chunk.drop(columns='owner', inplace=True)
             chunk.drop(columns='repo', inplace=True)
 
+            # Temp working columns.
+            chunk = chunk.assign(comment_user_login='', pr_user_login='')
+
             chunk[['pr_comments_cnt',
                    'pr_review_comments_cnt',
                    'pr_commits_cnt',
                    'pr_additions',
                    'pr_deletions',
                    'pr_changed_files',
+                   'pr_user_login',
                    'pr_merged_by_user_id']] = list(tqdm(
                        gitHubExecutor.map(
                            self.github_helper.get_pull_request_info,
@@ -183,6 +187,7 @@ class BigQueryCsvFileProcessor:
                 chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']),
                 [
                     'comment_author_association',
+                    'comment_user_login',
                     'comment_updated_at',
                     'comment_html_url',
                     'pr_commits_cnt_prior_to_comment',
@@ -191,7 +196,7 @@ class BigQueryCsvFileProcessor:
                     'commit_file_deletions',
                     'commit_file_changes'
                 ]
-            ] = ['Not Available'] * 8
+            ] = ['Not Available'] * 9
 
             # Load commit info.
             chunk = self.__get_comment_info(
@@ -199,6 +204,12 @@ class BigQueryCsvFileProcessor:
                 gitHubExecutor,
                 (~chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']))
             )
+
+            chunk['comment_is_by_author'] = numpy.char.equal(
+                chunk['pr_user_login'].to_numpy(dtype=str),
+                chunk['comment_user_login'].to_numpy(dtype=str))
+            chunk.drop(columns='pr_user_login', inplace=True)
+            chunk.drop(columns='comment_user_login', inplace=True)
 
             # Filter out records not found from GitHub.
             del_from_github_ctr += len(
@@ -302,9 +313,13 @@ class BigQueryCsvFileProcessor:
                 | (chunk['pr_deletions'].isna())
                 | (chunk['pr_changed_files'].isna())
                 | (chunk['pr_merged_by_user_id'].isna())
+                | (chunk['comment_is_by_author'].isna())
             )
 
             if chunk[pr_to_load_gen_exp].shape[0] > 0:
+                # Temp working columns.
+                chunk = chunk.assign(comment_user_login='', pr_user_login='')
+
                 chunk.loc[
                     pr_to_load_gen_exp,
                     [
@@ -314,6 +329,7 @@ class BigQueryCsvFileProcessor:
                         'pr_additions',
                         'pr_deletions',
                         'pr_changed_files',
+                        'pr_user_login',
                         'pr_merged_by_user_id'
                     ]
                 ] = list(tqdm(
@@ -332,6 +348,7 @@ class BigQueryCsvFileProcessor:
             commit_info_to_load = (
                 (
                     (chunk['comment_author_association'].isna())
+                    | (chunk['comment_is_by_author'].isna())
                     | (chunk['comment_updated_at'].isna())
                     | (chunk['comment_html_url'].isna())
                     | (chunk['pr_commits_cnt_prior_to_comment'].isna())
@@ -349,6 +366,11 @@ class BigQueryCsvFileProcessor:
                     gitHubExecutor,
                     commit_info_to_load
                 )
+                chunk['comment_is_by_author'] = numpy.char.equal(
+                    chunk['pr_user_login'].to_numpy(dtype=str),
+                    chunk['comment_user_login'].to_numpy(dtype=str))
+                chunk.drop(columns='pr_user_login', inplace=True)
+                chunk.drop(columns='comment_user_login', inplace=True)
 
             chunk.to_csv(tmp_csv,
                          index=False,
@@ -395,6 +417,7 @@ class BigQueryCsvFileProcessor:
                    'pr_changed_files',
                    'pr_merged_by_user_id',
                    'comment_author_association',
+                   'comment_is_by_author',
                    'comment_updated_at',
                    'comment_html_url',
                    'pr_commits_cnt_prior_to_comment',
@@ -419,6 +442,7 @@ class BigQueryCsvFileProcessor:
             chunk['pr_commits_cnt'].isin(['Not Available', 'Not Found']),
             [
                 'comment_author_association',
+                'comment_user_login',
                 'comment_updated_at',
                 'comment_html_url',
                 'pr_commits_cnt_prior_to_comment',
@@ -427,13 +451,14 @@ class BigQueryCsvFileProcessor:
                 'commit_file_deletions',
                 'commit_file_changes'
             ]
-        ] = ['Not Available'] * 8
+        ] = ['Not Available'] * 9
 
         # Find the commit info, filtered by the given condition.
         chunk.loc[
             filter_gen_exp,
             [
                 'comment_author_association',
+                'comment_user_login',
                 'comment_updated_at',
                 'comment_html_url',
                 'pr_commits_cnt_prior_to_comment',
