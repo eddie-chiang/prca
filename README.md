@@ -45,23 +45,29 @@ Download the following corpora:
 
 ## Configure [Confuse](http://confuse.readthedocs.org) 
 ### On macOS and Linux
-1. Add the following to the end of venv [activate script](.venv/bin/activate)
+1. Add the following to the end of venv [activate script](.venv/bin/activate):
 ```bash
 # Confuse Config Search Directory
 PULLREQUESTCOMMENTANALYZERDIR="./"
 export PULLREQUESTCOMMENTANALYZERDIR
 ```
-2. Then reactivate the ven to take effect.
+2. Then reactivate the venv to take effect:
 ```bash
 source .venv/bin/activate
 ```
 ### On Windows
-1. Add the following to the end of [Activate.ps1](.venv\Scripts\Activate.ps1)
+By default, once the venv Python interpreter is selected, Visual Studio Code will use [activate.bat](.venv\Scripts\activate.bat) automatically 
+when starting the Python environment, so add the following to the end of [activate.bat](.venv\Scripts\activate.bat):
+```bash
+rem Confuse Config Search Directory
+set PULLREQUESTCOMMENTANALYZERDIR="./"
+```
+Alternatively, add the following to the end of [Activate.ps1](.venv\Scripts\Activate.ps1):
 ```powershell
 # Confuse Config Search Directory
 $env:PULLREQUESTCOMMENTANALYZERDIR="./"
 ```
-2. Then reactivate the ven to take effect.
+Then reactivate the venv to take effect:
 ```bash
 .venv\Scripts\Activate.ps1
 ```
