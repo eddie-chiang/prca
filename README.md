@@ -44,6 +44,13 @@ Download the following corpora:
 - nps_chat
 
 ## Configure [Confuse](http://confuse.readthedocs.org) 
+By default, Visual Studio Code will use [.env](.env) automatically 
+when starting the Python environment, so add the following to the end of [.env](.env) (create the file if it does not exist):
+```bash
+# Confuse Config Search Directory
+PULLREQUESTCOMMENTANALYZERDIR="./"
+```
+Alternatively, if not using Visual Studio Code, please see the instructions below.
 ### On macOS and Linux
 1. Add the following to the end of venv [activate script](.venv/bin/activate):
 ```bash
@@ -56,18 +63,12 @@ export PULLREQUESTCOMMENTANALYZERDIR
 source .venv/bin/activate
 ```
 ### On Windows
-By default, once the venv Python interpreter is selected, Visual Studio Code will use [activate.bat](.venv\Scripts\activate.bat) automatically 
-when starting the Python environment, so add the following to the end of [activate.bat](.venv\Scripts\activate.bat):
-```bash
-rem Confuse Config Search Directory
-set PULLREQUESTCOMMENTANALYZERDIR="./"
-```
-Alternatively, add the following to the end of [Activate.ps1](.venv\Scripts\Activate.ps1):
+1. Add the following to the end of [Activate.ps1](.venv\Scripts\Activate.ps1):
 ```powershell
 # Confuse Config Search Directory
 $env:PULLREQUESTCOMMENTANALYZERDIR="./"
 ```
-Then reactivate the venv to take effect:
+2. Then reactivate the venv to take effect:
 ```bash
 .venv\Scripts\Activate.ps1
 ```
