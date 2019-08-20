@@ -33,6 +33,8 @@ def main():
     logger = logging.getLogger('pullrequestcommentanalyzer')
     logger.info('Program started.')
 
+    # mannwhitneyutest(logger)
+
     pull_request_comments_csv_file = Path(
         cfg['bigquery']['pull_request_comments_results_csv_file'].as_filename())
     error_alert_sound_file = cfg['error_alert_sound_file'].as_filename()
@@ -132,6 +134,12 @@ def main():
 #             result.append(lemmatize_stemming(token))
 #     return result
 
+def mannwhitneyutest(logger):
+    from scipy.stats import mannwhitneyu
+    x_non_code_comprehension_related = [3, 2, 4, 7, 1, 4, 9, 18, 6, 1, 5, 3, 3, 8, 3, 1, 2, 30, 0, 1, 23, 3, 4, 5, 1, 1, 2, 2, 4, 36, 6, 11, 22, 9, 0, 35, 1, 0, 1, 3, 6, 13, 0, 14, 30, 0, 34, 2, 3, 14, 14, 2, 33, 1, 20, 1, 8, 18, 0, 1, 0, 2, 10, 32, 6, 8, 2, 0, 2, 1, 27, 33, 33, 11, 2, 17, 1, 1, 1, 1, 24, 5, 6, 0, 2, 69, 2, 23, 10, 3, 0, 10, 0, 8, 0, 2, 6, 2, 2, 1, 1, 12, 3, 13, 7, 23, 8, 1, 11, 13, 3, 5, 9, 2, 16, 14, 1, 1, 1, 6, 3, 10, 12, 12, 0, 4, 36, 9, 10, 8, 20, 26, 2, 2, 5, 35, 0, 7, 4, 2, 2, 4, 2, 36, 8, 16, 16, 0, 8, 1, 0, 11, 26, 2, 9, 0, 2, 2, 37, 1, 1, 11, 21, 6, 23, 4, 4, 1, 4, 8, 8, 2, 4, 0, 5, 19, 1, 6, 0, 4, 7, 1, 6, 0, 0, 42, 3, 8, 5, 9, 3, 2, 3, 2, 16, 3, 5, 10, 4, 2, 1, 0, 2, 5, 1, 2, 6, 0, 1, 11, 9, 4, 5, 2, 21, 6, 1, 0, 3, 2, 9, 73, 0, 10, 4, 1, 4, 0, 18, 8, 0, 13, 2, 9, 18, 64, 34, 12, 5, 2, 0, 4, 3, 31, 14, 2, 13, 0, 3, 3, 8, 7, 16, 3, 0, 2, 7, 1, 22, 0, 0, 4, 7, 12, 25, 11, 19, 4, 5, 0, 6, 0, 3, 8, 3, 3, 7, 3, 3, 5, 20, 2, 10, 1, 2, 11, 0, 52, 0, 0, 2, 15, 7, 1, 0, 19]
+    y_code_comprehension_related = [7, 9, 4, 1, 36, 3, 8, 9, 59, 12, 8, 2, 0, 3, 2, 1, 3, 2, 8, 6, 49, 1, 4, 2, 2, 2, 1, 0, 6, 1, 0, 5, 6, 7, 2, 21, 5, 1, 0, 1, 0, 16, 5, 3, 8, 19, 1, 0, 1, 4, 6, 9, 10, 10, 8, 10, 11, 31, 1, 0, 13, 6, 31, 9, 9, 12, 2, 0, 0, 1, 22, 3, 6, 28, 3, 2, 2, 2, 3, 0, 1, 6, 18, 36, 20, 2, 3, 6, 4]
+    statistic, pvalue = mannwhitneyu(x=x_non_code_comprehension_related, y=y_code_comprehension_related, use_continuity=True, alternative='two-sided')
+    logger.info(f'Mann-Whitney U Test, statistic: {statistic}, p-value: {pvalue}.')
 
 # Execute only if run as a script
 if __name__ == "__main__":
