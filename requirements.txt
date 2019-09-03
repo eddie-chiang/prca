@@ -6,5 +6,6 @@ pandas
 playsound
 pymongo
 requests-cache
+scikit-learn
 sshtunnel
 tqdm
