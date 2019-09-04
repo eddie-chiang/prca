@@ -5,6 +5,9 @@ error_alert_sound_file: ./assets/ComputerErrorAlert.mp3 # From http://soundbible
 bigquery:
   pull_request_comments_results_csv_file: ./data/sample/ghtorrent_bigquery_result.csv
 
+machine_learning:
+  trained_excel_file: ./data/results_20190503_1403_cleaned_classified_manual_labeling.xlsx
+
 ghtorrent_mongodb:
   host: dutihr.st.ewi.tudelft.nl
   port: 27017
