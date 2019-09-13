@@ -90,6 +90,11 @@ def main():
         data_frame = pandas.read_excel(
             io=cfg['machine_learning']['trained_excel_file'].as_filename(), 
             sheet_name='Data')
+        
+        # source = pandas.read_csv('/Volumes/RamDisk/results_20190503_1403_cleaned_classified.csv')
+        # merged = pandas.merge(data_frame, source, on='comment_id', how='inner')
+        # merged.to_csv('/Volumes/RamDisk/merged.csv', index=False, header=True, mode='w')
+
         ml = MachineLearning()
         ml.learn(data_frame)
 
