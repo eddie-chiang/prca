@@ -1,5 +1,6 @@
 cld2-cffi
 confuse
+Cython
 nltk
 pandas
 playsound
