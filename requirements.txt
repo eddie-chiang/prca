@@ -6,7 +6,7 @@ pandas==0.25.3
 playsound==1.2.2
 pymongo==3.9.0
 requests-cache==0.5.2
-scikit-learn==0.21.3
+scikit-learn==0.22
 sshtunnel==0.1.5
 tqdm==4.38.0
 xlrd==1.2.0
