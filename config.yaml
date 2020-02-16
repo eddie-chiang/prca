@@ -6,7 +6,7 @@ bigquery:
   pull_request_comments_results_csv_file: ./data/sample/ghtorrent_bigquery_result.csv
 
 machine_learning:
-  trained_excel_file: 
+  labeled_seed_excel_file:
 
 ghtorrent_mongodb:
   host: dutihr.st.ewi.tudelft.nl
