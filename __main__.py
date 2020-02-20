@@ -87,18 +87,14 @@ def main():
         'Perform Machine Learning? (y/n): ')
 
     if is_yes(input_result):
-        seed = pandas.read_excel(
-            io=cfg['machine_learning']['labeled_seed_excel_file'].as_filename(), 
-            sheet_name='Data')
+        labeled_seed_excel_file = cfg['machine_learning']['labeled_seed_excel_file'].as_filename()
+        seed = pandas.read_excel(io=labeled_seed_excel_file, sheet_name='Data')
+        test_dataset = pandas.read_excel(io=labeled_seed_excel_file, sheet_name='Test Dataset')
         
         unlabeled_dataset = pandas.read_csv(cfg['machine_learning']['unlabeled_csv_file'].as_filename())
-        
-        # source = pandas.read_csv('/Volumes/RamDisk/results_20190503_1403_cleaned_classified.csv')
-        # merged = pandas.merge(data_frame, source, on='comment_id', how='inner')
-        # merged.to_csv('/Volumes/RamDisk/merged.csv', index=False, header=True, mode='w')
 
         ml = MachineLearning()
-        ml.learn(seed, unlabeled_dataset)
+        ml.active_learn(seed, unlabeled_dataset, test_dataset)
 
     # # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     # comments = collections.defaultdict(set)
