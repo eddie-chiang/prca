@@ -8,5 +8,5 @@ pymongo==3.10.1
 requests-cache==0.5.2
 scikit-learn==0.22.1
 sshtunnel==0.1.5
-tqdm==4.42.1
+tqdm==4.43.0
 xlrd==1.2.0
