@@ -91,10 +91,8 @@ def main():
         seed = pandas.read_excel(io=labeled_seed_excel_file, sheet_name='Data')
         test_dataset = pandas.read_excel(io=labeled_seed_excel_file, sheet_name='Test Dataset')
         
-        unlabeled_dataset = pandas.read_csv(cfg['machine_learning']['unlabeled_csv_file'].as_filename())
-
         ml = MachineLearning()
-        ml.active_learn(seed, unlabeled_dataset, test_dataset)
+        ml.active_learn(seed, test_dataset)
 
     # # Use the model to classify unlabeled data (BigQuery results from the CSV file).
     # comments = collections.defaultdict(set)

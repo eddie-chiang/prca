@@ -7,7 +7,6 @@ bigquery:
 
 machine_learning:
   labeled_seed_excel_file:
-  unlabeled_csv_file:
 
 ghtorrent_mongodb:
   host: dutihr.st.ewi.tudelft.nl
