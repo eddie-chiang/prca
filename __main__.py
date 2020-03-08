@@ -87,6 +87,8 @@ def main():
         'Perform Machine Learning? (y/n): ')
 
     if is_yes(input_result):
+        ml = MachineLearning()
+
         labeled_seed_excel_file = cfg['machine_learning']['labeled_seed_excel_file'].as_filename(
         )
         dataset_dir = Path(labeled_seed_excel_file).parent
@@ -104,8 +106,6 @@ def main():
         if test_dataset_file.exists():
             test_dataset = pandas.read_csv(test_dataset_file)
 
-        ml = MachineLearning()
-
         if not training_dataset_file.exists() or not test_dataset_file.exists():
             training_dataset, test_dataset = ml.train_test_split(
                 sample_dataset)
@@ -115,9 +115,13 @@ def main():
             test_dataset.to_csv(test_dataset_file,
                                 header=True, index=False, mode='w')      
 
-        # unlabeled_csv_file = pandas.read_csv(cfg['machine_learning']['unlabeled_csv_file'].as_filename())
+        unlabeled_csv_file = pandas.read_csv(cfg['machine_learning']['unlabeled_csv_file'].as_filename())
+        
+        # Filter out rows already labeled in training and test datasets.
+        comment_ids = pandas.concat([training_dataset['comment_id'], test_dataset['comment_id']])
+        unlabeled_csv_file = unlabeled_csv_file[~unlabeled_csv_file.comment_id.isin(comment_ids)]
 
-        ml.active_learn(training_dataset, test_dataset, None)
+        ml.active_learn(training_dataset, test_dataset, unlabeled_csv_file)
 
         # new_training_instances.to_csv(
         #     training_dataset_file,
