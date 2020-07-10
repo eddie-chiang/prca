@@ -106,9 +106,6 @@ venv.bak/
 # Environment specific config file.
 config.workspace.yaml
 
-# Visual Studio Code generated files
-.vscode
-
 # requests_cache files.
 data/github_cache.sqlite
 

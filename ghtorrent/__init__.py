@@ -1,1 +1,2 @@
 from .BigQueryCsvFileProcessor import BigQueryCsvFileProcessor
+from .CommentResourceAccess import CommentResourceAccess

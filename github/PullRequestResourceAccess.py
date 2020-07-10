@@ -1,10 +1,11 @@
 import logging
-import requests
-import requests_cache
 import time
 
+import requests
+import requests_cache
 
-class GitHubPullRequestHelper:
+
+class PullRequestResourceAccess:
     """A helper class that retrieves GitHub pull request information.
 
     Args:
@@ -28,8 +29,7 @@ class GitHubPullRequestHelper:
         for i, token in enumerate(personal_access_tokens):
             if token != None:
                 self.token_idx = i
-                self.session.headers.update(
-                    {'Authorization': 'token ' + token})
+                self.session.headers.update({'Authorization': 'token ' + token})
                 break
 
     def get_pull_request_info(self, project_url: str, pull_number: int):
@@ -66,14 +66,12 @@ class GitHubPullRequestHelper:
                 json['deletions'],
                 json['changed_files'],
                 json['user']['login'],
-                json['merged_by'].get('id') if json.get(
-                    'merged_by') != None else 'Not Available'
+                json['merged_by'].get('id') if json.get('merged_by') != None else 'Not Available'
             ]
         elif status_code == 404:
             return ['Not Found'] * 8
 
-        raise RuntimeError(
-            'Unknown error occurred.', project_url, pull_number)
+        raise RuntimeError('Unknown error occurred.', project_url, pull_number)
 
     def get_pull_request_comment_info(self, project_url: str, pull_number: int, comment_id: int):
         """Returns pull request comment related information, and the commit that the comment pertains.
@@ -88,6 +86,7 @@ class GitHubPullRequestHelper:
             comment_id (int): GitHub comment ID.
         Returns:
             Series: [
+                body,
                 author_association,
                 comment_user_login,
                 updated_at,
@@ -119,14 +118,13 @@ class GitHubPullRequestHelper:
                         self.logger.warn(
                             f'Commit or file not found for comment: {url}, file: {e.args[2]}, original_commit_id: {e.args[3]}, commit count: {e.args[4]}')
                 except IndexError:
-                    self.logger.exception(
-                        f'Unknown error while finding commit or file for comment: {url}.')
+                    self.logger.exception(f'Unknown error while finding commit or file for comment: {url}.')
                     raise e  # Some other error, reraise.
 
             result = [
+                comment['body'],
                 comment['author_association'],
-                comment['user'].get('login') if comment.get(
-                    'user') != None else 'Not Available',
+                comment['user'].get('login') if comment.get('user') != None else 'Not Available',
                 comment['updated_at'],
                 comment['html_url']
             ]
@@ -134,10 +132,9 @@ class GitHubPullRequestHelper:
             return result
 
         elif status_code == 404:
-            return ['Not Found'] * 9
+            return ['Not Found'] * 10
 
-        raise RuntimeError(
-            'Unknown error occurred.', project_url, pull_number, comment_id)
+        raise RuntimeError('Unknown error occurred.', project_url, pull_number, comment_id)
 
     def get_commit_file_for_comment(self, project_url: str, pull_number: int, filename: str, original_commit_id: str):
         """Returns commit file for that a pull request comment is pertaining..
@@ -167,8 +164,7 @@ class GitHubPullRequestHelper:
                 commit_file_changes
             ]
         """
-        url = project_url + '/pulls/' + \
-            str(pull_number) + '/commits?per_page=250'
+        url = project_url + '/pulls/' + str(pull_number) + '/commits?per_page=250'
         status_code, commits = self.__invoke(url)
 
         if status_code == 200:
@@ -191,8 +187,7 @@ class GitHubPullRequestHelper:
                     if status_code == 200 and commit.get('files') != None:
                         # Find the file committed.
                         commit_file = next(iter(
-                            [f for f in commit['files']
-                             if f['filename'] == filename]
+                            [f for f in commit['files'] if f['filename'] == filename]
                         ), None)
 
                         if commit_file != None:
@@ -205,11 +200,9 @@ class GitHubPullRequestHelper:
                             ]
                         # Else move on to earlier commit.
 
-            raise ValueError(
-                'Related commit or file not found.', url, filename, original_commit_id, commits_cnt)
+            raise ValueError('Related commit or file not found.', url, filename, original_commit_id, commits_cnt)
 
-        raise RuntimeError(
-            'Unknown error occurred.', project_url, pull_number, filename, original_commit_id)
+        raise RuntimeError('Unknown error occurred.', project_url, pull_number, filename, original_commit_id)
 
     def __invoke(self, url: str):
         try:
@@ -243,8 +236,7 @@ class GitHubPullRequestHelper:
                 self.logger.warn(
                     f'Triggered abuse detection, {token}, index: {self.token_idx}, retry after: {retry_after}, retrying with the next token instead...')
             else:
-                raise Exception(
-                    f'Unknown HTTP 403 error, from {url}, headers: {headers} response: {json}')
+                raise Exception(f'Unknown HTTP 403 error, from {url}, headers: {headers} response: {json}')
 
             self.token_idx, self.session = self.__next_token(
                 self.personal_access_tokens, self.token_idx, self.session)
