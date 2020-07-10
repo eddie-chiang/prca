@@ -1,5 +1,4 @@
 {
-    "python.pythonPath": "./.venv/bin/python",
     "editor.detectIndentation": false,
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
