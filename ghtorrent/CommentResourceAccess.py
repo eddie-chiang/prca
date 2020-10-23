@@ -47,7 +47,7 @@ class CommentResourceAccess:
         self.server = SSHTunnelForwarder((ssh_host, ssh_port),
                                         ssh_username=ssh_username,
                                         ssh_pkey=ssh_pkey,
-                                        ssh_private_key_password=db_password,
+                                        ssh_private_key_password=ssh_private_key_password,
                                         remote_bind_address=(db_host, db_port),
                                         logger=logging.getLogger('SSHTunnelForwarder'))
 
