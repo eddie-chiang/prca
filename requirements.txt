@@ -6,5 +6,5 @@ playsound~=1.2.2
 pymongo~=3.11.0
 PyObjC~=6.2.2; sys.platform == 'darwin'
 requests-cache~=0.5.2
-sshtunnel~=0.1.5
+sshtunnel~=0.3.1
 tqdm~=4.50.0
