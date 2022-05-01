@@ -7,4 +7,4 @@ pymongo~=3.11.0
 PyObjC~=6.2.2; sys.platform == 'darwin'
 requests-cache~=0.5.2
 sshtunnel~=0.1.5
-tqdm~=4.50.0
+tqdm~=4.64.0
